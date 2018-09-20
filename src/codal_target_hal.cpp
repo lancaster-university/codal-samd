@@ -20,13 +20,7 @@ void target_wait_for_event()
 
 void target_wait(uint32_t milliseconds)
 {
-    HAL_Delay(milliseconds);
-}
-
-extern void wait_us(uint32_t);
-void target_wait_us(unsigned long us)
-{
-    wait_us(us);
+    target_wait_us(milliseconds * 1000);
 }
 
 int target_seed_random(uint32_t rand)
@@ -41,9 +35,7 @@ int target_random(int max)
 
 void target_reset()
 {
-    PWR->CR |= PWR_CR_DBP;
-    RCC->BDCR |= RCC_BDCR_RTCEN;
-    RTC->BKP0R = 0x24a22d12; // skip bootloader
+    // TODO skip bootloader
     NVIC_SystemReset();
 }
 
@@ -62,11 +54,9 @@ void target_panic(int statusCode)
     }
 }
 
-extern "C" void init_irqs();
 void target_init()
 {
-    HAL_Init();
-    init_irqs();
+    // TODO
 }
 
 /**

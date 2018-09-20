@@ -8,13 +8,9 @@ namespace codal
 {
 class ZTimer : public codal::Timer
 {
-    uint32_t prev;
 public:
-    TIM_HandleTypeDef TimHandle;
-    
     ZTimer();
     static ZTimer *instance;
-    void init();
     virtual void triggerIn(CODAL_TIMESTAMP t);
     virtual void syncRequest();
 };
