@@ -2,22 +2,27 @@ project(codal-samd)
 
 include("${CODAL_UTILS_LOCATION}")
 
-# find sources and headers
 # TODO allow SAMD21
+set(ASF "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51")
+
+# find sources and headers
 SET(TOP_LEVEL_INCLUDE_DIRS0 
-    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51/hri"
-    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51/hpl/port"
-    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51/hal/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51/hal/utils/include"
+    "${ASF}/include"
+    "${ASF}/hri"
+    "${ASF}/hpl/port"
+    "${ASF}/hal/include"
+    "${ASF}/hal/utils/include"
 )
 
 RECURSIVE_FIND_DIR(TOP_LEVEL_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/inc" "*.h")
 
 RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE0 "${CMAKE_CURRENT_SOURCE_DIR}/src" "*.cpp")
 RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE1 "${CMAKE_CURRENT_SOURCE_DIR}/src" "*.c")
-#RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51" "*.[cs]")
-LIST(APPEND TOP_LEVEL_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/asm/CortexContextSwitch.s")
+
+#RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE "${ASF}" "*.[cs]")
+LIST(APPEND TOP_LEVEL_SOURCE
+    "${ASF}/gcc/gcc/startup_samd51.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/asm/CortexContextSwitch.s")
 
 # add them
 include_directories(${TOP_LEVEL_INCLUDE_DIRS0} ${TOP_LEVEL_INCLUDE_DIRS} ${INCLUDE_DIRS})

@@ -63,7 +63,7 @@ static void tick_init() {
     #endif
 }
 
-void target_wait_us(uint32_t us) {
+extern "C" void target_wait_us(uint32_t us) {
     tick_init();
 
     uint32_t ticks_per_us = CODAL_CPU_MHZ;
