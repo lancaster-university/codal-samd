@@ -35,6 +35,7 @@ DEALINGS IN THE SOFTWARE.
 #include "codal-core/inc/types/Event.h"
 #include "PinNamesTypes.h"
 #include "pinmap.h"
+#include "hal_gpio.h"
 
 #define IO_STATUS_CAN_READ                                                                         \
     (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
@@ -59,7 +60,7 @@ inline gpio_pull_mode map(codal::PullMode pinMode)
         return GPIO_PULL_OFF;
     }
 
-    return GPIO_NOPULL;
+    return GPIO_PULL_OFF;
 }
 
 /**
@@ -170,7 +171,7 @@ int ZPin::getDigitalValue()
         disconnect();
         gpio_set_pin_function(name, GPIO_PIN_FUNCTION_OFF);
         gpio_set_pin_direction(name, GPIO_DIRECTION_IN);
-        gpio_set_pin_pull_mode(name, map(pull));
+        gpio_set_pin_pull_mode(name, map(pullMode));
         status |= IO_STATUS_DIGITAL_IN;
     }
 

@@ -13,6 +13,7 @@ public:
     static ZTimer *instance;
     virtual void triggerIn(CODAL_TIMESTAMP t);
     virtual void syncRequest();
+    void init();
 };
 } // namespace codal
 

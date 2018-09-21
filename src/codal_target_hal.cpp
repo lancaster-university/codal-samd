@@ -1,4 +1,4 @@
-#include "stm32.h"
+#include "sam.h"
 #include "codal_target_hal.h"
 #include "CodalDmesg.h"
 #include "CodalCompat.h"

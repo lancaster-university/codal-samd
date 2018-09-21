@@ -47,7 +47,7 @@ static void tick_init() {
     NVIC_EnableIRQ(SysTick_IRQn);
     // Set all peripheral interrupt priorities to the lowest priority by default.
     for (uint16_t i = 0; i < PERIPH_COUNT_IRQn; i++) {
-        NVIC_SetPriority(i, (1UL << __NVIC_PRIO_BITS) - 1UL);
+        NVIC_SetPriority((IRQn_Type)i, (1UL << __NVIC_PRIO_BITS) - 1UL);
     }
     // Bump up the systick interrupt so nothing else interferes with timekeeping.
     NVIC_SetPriority(SysTick_IRQn, 0);
@@ -81,6 +81,11 @@ void target_wait_us(uint32_t us) {
 ZTimer::ZTimer() : codal::Timer()
 {
     instance = this;
+}
+
+void ZTimer::init()
+{
+    tick_init();
 }
 
 void ZTimer::triggerIn(CODAL_TIMESTAMP t)

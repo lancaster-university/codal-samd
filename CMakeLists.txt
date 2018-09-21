@@ -4,9 +4,14 @@ include("${CODAL_UTILS_LOCATION}")
 
 # find sources and headers
 # TODO allow SAMD21
-LIST(SET TOP_LEVEL_INCLUDE_DIRS0 
-    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51"
-    )
+SET(TOP_LEVEL_INCLUDE_DIRS0 
+    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51/hri"
+    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51/hpl/port"
+    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51/hal/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51/hal/utils/include"
+)
+
 RECURSIVE_FIND_DIR(TOP_LEVEL_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/inc" "*.h")
 
 RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE0 "${CMAKE_CURRENT_SOURCE_DIR}/src" "*.cpp")

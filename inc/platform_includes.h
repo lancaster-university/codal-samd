@@ -7,7 +7,7 @@
 #include <stdarg.h>
 #include <math.h>
 
-#include "stm32.h"
+#include "sam.h"
 
 #define PROCESSOR_WORD_TYPE uint32_t
 
