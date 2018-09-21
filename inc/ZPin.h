@@ -79,7 +79,7 @@ protected:
      *
      * @return DEVICE_OK on success
      */
-    virtual int enableRiseFallEvents(int eventType);
+    //virtual int enableRiseFallEvents(int eventType);
 
     /**
      * If this pin is in a mode where the pin is generating events, it will destruct
@@ -87,7 +87,7 @@ protected:
      *
      * @return DEVICE_OK on success.
      */
-    virtual int disableEvents();
+    //virtual int disableEvents();
 
 public:
     void disconnect();
@@ -350,7 +350,7 @@ public:
      * was 85us, around 5khz. If more precision is required, please use the InterruptIn class
      * supplied by ARM mbed.
      */
-    virtual int eventOn(int eventType);
+    //virtual int eventOn(int eventType);
 };
 } // namespace codal
 

@@ -4,14 +4,20 @@ include("${CODAL_UTILS_LOCATION}")
 
 # TODO allow SAMD21
 set(ASF "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51")
+set(SP "${CMAKE_CURRENT_SOURCE_DIR}/samd-peripherals/samd")
+set(SP2 "${SP}/samd51")
 
 # find sources and headers
 SET(TOP_LEVEL_INCLUDE_DIRS0 
+    "${ASF}"
     "${ASF}/include"
+    "${ASF}/config"
     "${ASF}/hri"
     "${ASF}/hpl/port"
     "${ASF}/hal/include"
     "${ASF}/hal/utils/include"
+    "${SP}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/samd-peripherals"
 )
 
 RECURSIVE_FIND_DIR(TOP_LEVEL_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/inc" "*.h")
@@ -20,8 +26,11 @@ RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE0 "${CMAKE_CURRENT_SOURCE_DIR}/src" "*.cpp")
 RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE1 "${CMAKE_CURRENT_SOURCE_DIR}/src" "*.c")
 
 #RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE "${ASF}" "*.[cs]")
+
 LIST(APPEND TOP_LEVEL_SOURCE
-    "${ASF}/gcc/gcc/startup_samd51.c"
+    "${SP}/clocks.c"
+    "${SP2}/clocks.c"
+    "${ASF}/hal/src/hal_atomic.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/asm/CortexContextSwitch.s")
 
 # add them
