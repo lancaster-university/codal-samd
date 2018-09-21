@@ -39,32 +39,24 @@ DEALINGS IN THE SOFTWARE.
 #define IO_STATUS_CAN_READ                                                                         \
     (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
 
-#define PORTPINS 16
-#define PINMASK (PORTPINS - 1)
-
-#define GPIO_PORT() ((GPIO_TypeDef *)(GPIOA_BASE + 0x400 * ((int)name >> 4)))
-#define GPIO_PIN() (1 << ((uint32_t)name & 0xf))
-
 namespace codal
 {
-
-static ZPin *eventPin[16];
 
 struct ZEventConfig
 {
     CODAL_TIMESTAMP prevPulse;
 };
 
-inline int map(codal::PullMode pinMode)
+inline gpio_pull_mode map(codal::PullMode pinMode)
 {
     switch (pinMode)
     {
     case PullMode::Up:
-        return GPIO_PULLUP;
+        return GPIO_PULL_UP;
     case PullMode::Down:
-        return GPIO_PULLDOWN;
+        return GPIO_PULL_DOWN;
     case PullMode::None:
-        return GPIO_NOPULL;
+        return GPIO_PULL_OFF;
     }
 
     return GPIO_NOPULL;
@@ -108,7 +100,8 @@ void ZPin::disconnect()
 
     if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE))
     {
-        EXTI->IMR &= ~GPIO_PIN();
+        // TODO
+        // EXTI->IMR &= ~GPIO_PIN();
         if (this->evCfg)
             delete this->evCfg;
         this->evCfg = NULL;
@@ -123,24 +116,6 @@ void ZPin::disconnect()
 
     status = 0;
 }
-
-// void ZPin::config(int status)
-// {
-//     disconnect();
-
-//     int mode = STM_PIN_INPUT;
-//     int pull = GPIO_NOPULL;
-
-//     if (status & IO_STATUS_DIGITAL_OUT)
-//         mode = STM_PIN_OUTPUT;
-//     else if (this->status & IO_STATUS_ANALOG_IN)
-//         mode = STM_PIN_ANALOG;
-
-//     if (status & IO_STATUS_CAN_READ)
-//         pull = map(this->pullMode);
-
-//     pin_function(name, STM_PIN_DATA(mode, pull, 0));
-// }
 
 /**
  * Configures this IO pin as a digital output (if necessary) and sets the pin to 'value'.
@@ -165,11 +140,12 @@ int ZPin::setDigitalValue(int value)
     if (!(status & IO_STATUS_DIGITAL_OUT))
     {
         disconnect();
-        pin_function(name, STM_PIN_DATA(STM_PIN_OUTPUT, GPIO_NOPULL, 0));
+        gpio_set_pin_function(name, GPIO_PIN_FUNCTION_OFF);
+        gpio_set_pin_direction(name, GPIO_DIRECTION_OUT);
         status |= IO_STATUS_DIGITAL_OUT;
     }
 
-    HAL_GPIO_WritePin(GPIO_PORT(), GPIO_PIN(), (GPIO_PinState)value);
+    gpio_set_pin_level(name, value);
 
     return DEVICE_OK;
 }
@@ -192,11 +168,13 @@ int ZPin::getDigitalValue()
     if (!(status & (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
     {
         disconnect();
-        pin_function(name, STM_PIN_DATA(STM_PIN_INPUT, map(this->pullMode), 0));
+        gpio_set_pin_function(name, GPIO_PIN_FUNCTION_OFF);
+        gpio_set_pin_direction(name, GPIO_DIRECTION_IN);
+        gpio_set_pin_pull_mode(name, map(pull));
         status |= IO_STATUS_DIGITAL_IN;
     }
 
-    return HAL_GPIO_ReadPin(GPIO_PORT(), GPIO_PIN());
+    return gpio_get_pin_level(name);
 }
 
 /**
@@ -225,9 +203,10 @@ int ZPin::obtainAnalogChannel()
     if (!(status & IO_STATUS_ANALOG_OUT))
     {
         disconnect();
-        pin_function(name, STM_PIN_DATA(STM_PIN_OUTPUT, map(this->pullMode), 0));
+        //TODO
+        //pin_function(name, STM_PIN_DATA(STM_PIN_OUTPUT, map(this->pullMode), 0));
         auto cfg = this->pwmCfg = new pwmout_t;
-        pwmout_init(cfg, name);
+        //pwmout_init(cfg, name);
         status = IO_STATUS_ANALOG_OUT;
     }
 
@@ -245,9 +224,12 @@ int ZPin::setPWM(uint32_t value, uint32_t period)
 
     auto cfg = this->pwmCfg;
 
+    //TODO
+    /*
     if (cfg->period != period)
         pwmout_period_us(cfg, period);
     pwmout_write(cfg, value);
+    */
 
     return DEVICE_OK;
 }
@@ -535,6 +517,7 @@ void ZPin::pulseWidthEvent(int eventValue)
     this->evCfg->prevPulse = now;
 }
 
+#if 0
 void ZPin::eventCallback()
 {
     bool isRise = HAL_GPIO_ReadPin(GPIO_PORT(), GPIO_PIN());
@@ -707,4 +690,6 @@ int ZPin::eventOn(int eventType)
 
     return DEVICE_OK;
 }
+#endif
+
 } // namespace codal
