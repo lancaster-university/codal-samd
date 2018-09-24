@@ -27,8 +27,11 @@ DEALINGS IN THE SOFTWARE.
 
 #include "CodalConfig.h"
 #include "codal-core/inc/driver-models/SPI.h"
-#include "Pin.h"
+#include "ZPin.h"
 #include "SAMDDMAC.h"
+
+#include <hal_spi_m_sync.h>
+
 
 namespace codal
 {
@@ -36,10 +39,10 @@ namespace codal
 /**
  * Class definition for SPI service, derived from ARM mbed.
  */
-class ZSPI : public codal::SPI, codal::DmaComponent
+class ZSPI : public codal::SPI, public codal::DmaComponent
 {
 protected:
-    Pin *mosi, *miso, *sclk;
+    ZPin *mosi, *miso, *sclk;
     uint32_t freq;
 
     Sercom *sercom;
@@ -47,8 +50,6 @@ protected:
 
     uint8_t _bits, _mode;    
     int8_t dmaTxCh, dmaRxCh;
-
-    SAMDDMAC &dmac;
 
     PVoidCallback doneHandler;
     void *doneHandlerArg;

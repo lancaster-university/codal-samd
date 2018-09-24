@@ -31,10 +31,10 @@ DEALINGS IN THE SOFTWARE.
 #include "Event.h"
 #include "CodalFiber.h"
 
-#include "dma.h"
+#include "sercom.h"
 #include "pinmap.h"
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+#include "parts.h"
 
 //#define LOG DMESG
 #define LOG(...) ((void)0)
@@ -53,12 +53,12 @@ void ZSPI::dmaTransferComplete()
         ;
 
     // In case we ignored input, clear the garbage
-    while (s->SPI.INTFLAG.bit.RXC == 1)
+    while (sercom->SPI.INTFLAG.bit.RXC == 1)
     {
-        s->SPI.DATA.reg;
+        sercom->SPI.DATA.reg;
     }
-    s->SPI.STATUS.bit.BUFOVF = 1;
-    s->SPI.INTFLAG.reg = SERCOM_SPI_INTFLAG_ERROR;
+    sercom->SPI.STATUS.bit.BUFOVF = 1;
+    sercom->SPI.INTFLAG.reg = SERCOM_SPI_INTFLAG_ERROR;
 
     LOG("SPI TXC done");
 
@@ -105,9 +105,9 @@ void ZSPI::init()
             if (mosi_si == -1)
                 continue;
 
-            int sclk_pad = sclk_mcu.sercom[sclk_si].pad;
-            int mosi_pad = mosi_mcu ? mosi_mcu.sercom[mosi_si].pad : 0;
-            int miso_pad = miso_mcu ? miso_mcu.sercom[miso_si].pad : 2;
+            int sclk_pad = sclk_mcu->sercom[sclk_si].pad;
+            int mosi_pad = mosi_mcu ? mosi_mcu->sercom[mosi_si].pad : 0;
+            int miso_pad = miso_mcu ? miso_mcu->sercom[miso_si].pad : 2;
 
             if (!mosi_mcu && miso_mcu && miso_pad == mosi_pad)
             {
@@ -143,7 +143,7 @@ void ZSPI::init()
             {
                 // spi_m_sync_set_baudrate does not check for validity, just whether the device is
                 // busy or not
-                target_panic(902)
+                target_panic(902);
             }
 
 #define MUX(si) ((si == 0) ? MUX_C : MUX_D)
@@ -158,6 +158,8 @@ void ZSPI::init()
 
         if (!sercom)
             target_panic(903);
+        
+        auto dmac = *SAMDDMAC::instance;
 
         if (miso)
         {
@@ -184,7 +186,7 @@ void ZSPI::init()
 
     LOG("SPI instance %p", sercom);
 
-    uint8_t baud_reg_value = samd_peripherals_spi_baudrate_to_baud_reg_value(frequency);
+    uint8_t baud_reg_value = samd_peripherals_spi_baudrate_to_baud_reg_value(freq);
 
     void *hw = spi_desc.dev.prvt;
     // Disable, set values (most or all are enable-protected), and re-enable.
@@ -203,9 +205,9 @@ void ZSPI::init()
 
 ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk) : codal::SPI()
 {
-    this->mosi = &mosi;
-    this->miso = &miso;
-    this->sclk = &sclk;
+    this->mosi = (ZPin*)&mosi;
+    this->miso = (ZPin*)&miso;
+    this->sclk = (ZPin*)&sclk;
 
     this->needsInit = true;
     this->transferCompleteEventCode = codal::allocateNotifyEvent();
@@ -257,8 +259,6 @@ int ZSPI::transfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer, 
 int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer,
                         uint32_t rxSize, PVoidCallback doneHandler, void *arg)
 {
-    int res;
-
     init();
 
     LOG("SPI start %p/%d %p/%d D=%p", txBuffer, txSize, rxBuffer, rxSize, doneHandler);
@@ -269,14 +269,14 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
     this->doneHandler = doneHandler;
     this->doneHandlerArg = arg;
 
-    sercom.SPI.INTFLAG.reg = SERCOM_SPI_INTFLAG_RXC | SERCOM_SPI_INTFLAG_DRE;
+    sercom->SPI.INTFLAG.reg = SERCOM_SPI_INTFLAG_RXC | SERCOM_SPI_INTFLAG_DRE;
 
     CODAL_ASSERT(txSize > 0);
     CODAL_ASSERT(rxSize == 0 || txSize == rxSize);
 
     if (rxSize)
-        dmac.startTransfer(dmaRxCh, NULL, rxBuffer, rxSize);
-    dmac.startTransfer(dmaTxCh, txBuffer, NULL, txSize);
+        SAMDDMAC::instance->startTransfer(dmaRxCh, NULL, rxBuffer, rxSize);
+    SAMDDMAC::instance->startTransfer(dmaTxCh, txBuffer, NULL, txSize);
 
     return 0;
 }

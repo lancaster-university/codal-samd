@@ -26,8 +26,13 @@ DEALINGS IN THE SOFTWARE.
 #include "Event.h"
 #include "CodalCompat.h"
 #include "SAMDDMAC.h"
+#include "codal_target_hal.h"
+#include <parts.h>
+
 
 #undef ENABLE
+
+using namespace codal;
 
 static DmaComponent *apps[DMA_DESCRIPTOR_COUNT];
 
@@ -96,6 +101,8 @@ void DmaComponent::dmaTransferComplete() {}
 
 SAMDDMAC::SAMDDMAC()
 {
+    SAMDDMAC::instance = this;
+
     uint32_t ptr = (uint32_t)descriptorsBuffer;
     while (ptr & (DMA_DESCRIPTOR_ALIGNMENT - 1))
         ptr++;
@@ -133,8 +140,9 @@ SAMDDMAC::SAMDDMAC()
 #else
     for (int i = 0; i < 5; ++i)
     {
-        NVIC_EnableIRQ(DMAC_0_IRQn + i);
-        NVIC_SetPriority(DMAC_0_IRQn + i, 1);
+        auto irq = (IRQn_Type)(DMAC_0_IRQn + i);
+        NVIC_EnableIRQ(irq);
+        NVIC_SetPriority(irq, 1);
     }
 #endif
 }
@@ -142,20 +150,18 @@ SAMDDMAC::SAMDDMAC()
 void SAMDDMAC::enable()
 {
     DMAC->CTRL.bit.DMAENABLE = 1; // Enable controller.
-    DMAC->CTRL.bit.CRCENABLE = 1; // Disable CRC checking.
 }
 
 void SAMDDMAC::disable()
 {
     DMAC->CTRL.bit.DMAENABLE = 0; // Diable controller, just while we configure it.
-    DMAC->CTRL.bit.CRCENABLE = 0; // Disable CRC checking.
 }
 
-void SAMDDMAC::startTransfer(int channel_number, void *src_addr, void *dst_addr, uint32_t len)
+void SAMDDMAC::startTransfer(int channel_number, const void *src_addr, void *dst_addr, uint32_t len)
 {
     CODAL_ASSERT(channel_number >= 0);
     target_disable_irq();
-    DmacDescriptor &descriptor = dmac.getDescriptor(channel_number);
+    DmacDescriptor &descriptor = getDescriptor(channel_number);
     descriptor.BTCNT.bit.BTCNT = len;
     if (src_addr)
         descriptor.SRCADDR.reg = (uint32_t)src_addr;
@@ -179,7 +185,7 @@ void SAMDDMAC::startTransfer(int channel_number, void *src_addr, void *dst_addr,
 }
 
 void SAMDDMAC::configureChannel(int channel_number, uint8_t trig_src, uint8_t beat_size,
-                                  void *src_addr, void *dst_addr)
+                                  volatile void *src_addr, volatile void *dst_addr)
 {
     CODAL_ASSERT(channel_number >= 0);
     target_disable_irq();
@@ -217,15 +223,17 @@ void SAMDDMAC::configureChannel(int channel_number, uint8_t trig_src, uint8_t be
 
     channel->CHCTRLA.bit.TRIGACT = 2; // One trigger per beat transfer
     channel->CHCTRLA.bit.TRIGSRC = trig_src;
+    /*
     channel->CHCTRLA.bit.LVL = 0;   // Low priority transfer
     channel->CHCTRLA.bit.EVOE = 0;  // Disable output event on every BEAT
     channel->CHCTRLA.bit.EVIE = 0;  // Disable input event
     channel->CHCTRLA.bit.EVACT = 0; // Trigger DMA transfer on BEAT
+    */
 
     channel->CHINTENSET.bit.TCMPL = 1; // Enable interrupt on completion.
 #endif
 
-    DmacDescriptor &descriptor = dmac.getDescriptor(channel_number);
+    DmacDescriptor &descriptor = getDescriptor(channel_number);
 
     descriptor.BTCTRL.reg = 0;
 

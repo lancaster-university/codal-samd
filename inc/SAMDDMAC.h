@@ -25,7 +25,7 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalConfig.h"
 #include "Timer.h"
 #include "Pin.h"
-#include "samd21.h"
+#include "sam.h"
 
 #ifndef SAMDDMAC_H
 #define SAMDDMAC_H
@@ -33,7 +33,8 @@ DEALINGS IN THE SOFTWARE.
 #define DMA_DESCRIPTOR_ALIGNMENT 16 // SAMD21 Datasheet 20.8.15 and 20.8.16
 #define DMA_DESCRIPTOR_COUNT 8
 
-using namespace codal;
+namespace codal
+{
 
 class DmaComponent
 {
@@ -55,6 +56,8 @@ class SAMDDMAC
     DmacDescriptor *descriptors;
 
 public:
+    static SAMDDMAC *instance;
+
     /**
      * Constructor for an instance of a DAC,
      */
@@ -101,10 +104,16 @@ public:
      */
     int onTransferComplete(int channel, DmaComponent *component);
 
+    void startTransfer(int channel_number, const void *src_addr, void *dst_addr, uint32_t len);
+    void configureChannel(int channel_number, uint8_t trig_src, uint8_t beat_size,
+                          volatile void *src_addr, volatile void *dst_addr);
+
 #if CONFIG_ENABLED(DEVICE_DBG)
     void showDescriptor(DmacDescriptor *desc);
     void showRegisters();
 #endif
 };
+
+} // namespace codal
 
 #endif

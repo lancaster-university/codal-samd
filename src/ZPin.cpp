@@ -33,7 +33,6 @@ DEALINGS IN THE SOFTWARE.
 #include "Timer.h"
 #include "codal_target_hal.h"
 #include "codal-core/inc/types/Event.h"
-#include "PinNamesTypes.h"
 #include "pinmap.h"
 #include "hal_gpio.h"
 
@@ -123,7 +122,7 @@ void ZPin::_setMux(int mux, bool isInput)
     disconnect();
     gpio_set_pin_direction(name, GPIO_DIRECTION_OUT);
     gpio_set_pin_pull_mode(name, GPIO_PULL_OFF);
-    gpio_set_pin_function(sclk->name, PINMUX(name, mux));
+    gpio_set_pin_function(name, PINMUX(name, mux));
 }
 
 /**
