@@ -31,7 +31,7 @@ DEALINGS IN THE SOFTWARE.
 #define SAMD21DMAC_H
 
 #define DMA_DESCRIPTOR_ALIGNMENT 16 // SAMD21 Datasheet 20.8.15 and 20.8.16
-#define DMA_DESCRIPTOR_COUNT 4
+#define DMA_DESCRIPTOR_COUNT 8
 
 using namespace codal;
 
@@ -40,6 +40,11 @@ class DmaComponent
 public:
     virtual void dmaTransferComplete();
 };
+
+static inline int sercom_trigger_src(int sercomIdx, bool tx)
+{
+    return SERCOM0_DMAC_ID_RX + sercomIdx * 2 + (tx ? 1 : 0);
+}
 
 class SAMD21DMAC
 {

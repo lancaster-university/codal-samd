@@ -25,12 +25,13 @@ DEALINGS IN THE SOFTWARE.
 #include "Timer.h"
 #include "Event.h"
 #include "CodalCompat.h"
-#include "SAMD21DAC.h"
+#include "SAMD21DMAC.h"
 
 #undef ENABLE
 
-static DmaComponent *apps[DMA_DESCRIPTOR_COUNT] = {NULL};
+static DmaComponent *apps[DMA_DESCRIPTOR_COUNT];
 
+#ifdef SAMD21
 extern "C" void DMAC_Handler(void)
 {
     uint32_t oldChannel = DMAC->CHID.bit.ID;
@@ -44,6 +45,49 @@ extern "C" void DMAC_Handler(void)
 
     DMAC->CHID.bit.ID = oldChannel;
 }
+#else
+static void dmac_irq_handler()
+{
+    uint8_t channel = hri_dmac_get_INTPEND_reg(DMAC, DMAC_INTPEND_ID_Msk);
+
+    if (hri_dmac_get_CHINTFLAG_TERR_bit(DMAC, channel))
+    {
+        hri_dmac_clear_CHINTFLAG_TERR_bit(DMAC, channel);
+        // tmp_resource->dma_cb.error(tmp_resource);
+    }
+    else if (hri_dmac_get_CHINTFLAG_TCMPL_bit(DMAC, channel))
+    {
+        hri_dmac_clear_CHINTFLAG_TCMPL_bit(DMAC, channel);
+        if (apps[channel] != NULL)
+            apps[channel]->dmaTransferComplete();
+    }
+}
+
+extern "C" void DMAC_0_Handler(void)
+{
+    dmac_irq_handler();
+}
+
+extern "C" void DMAC_1_Handler(void)
+{
+    dmac_irq_handler();
+}
+
+extern "C" void DMAC_2_Handler(void)
+{
+    dmac_irq_handler();
+}
+
+extern "C" void DMAC_3_Handler(void)
+{
+    dmac_irq_handler();
+}
+
+extern "C" void DMAC_4_Handler(void)
+{
+    dmac_irq_handler();
+}
+#endif
 
 /**
  * Base implementation of a DMA callback
@@ -62,13 +106,18 @@ SAMD21DMAC::SAMD21DMAC()
     // Set up to DMA Controller
     this->disable();
 
-    PM->APBBMASK.reg |= 0x10; // Enable the DMAC clock.
-    PM->AHBMASK.reg |= 0x20;  // Enable the DMAC clock.
+// Turn on the clocks
+#ifdef SAMD21
+    PM->AHBMASK.reg |= PM_AHBMASK_DMAC;
+    PM->APBBMASK.reg |= PM_APBBMASK_DMAC;
+#else
+    MCLK->AHBMASK.reg |= MCLK_AHBMASK_DMAC;
+#endif
 
-    DMAC->CTRL.bit.LVLEN0 = 1; // Allow all DMA priorities.
-    DMAC->CTRL.bit.LVLEN1 = 1; // Allow all DMA priorities.
-    DMAC->CTRL.bit.LVLEN2 = 1; // Allow all DMA priorities.
-    DMAC->CTRL.bit.LVLEN3 = 1; // Allow all DMA priorities.
+    DMAC->CTRL.reg = DMAC_CTRL_SWRST;
+
+    // Allow all DMA priorities.
+    DMAC->CTRL.reg = DMAC_CTRL_LVLEN0 | DMAC_CTRL_LVLEN1 | DMAC_CTRL_LVLEN2 | DMAC_CTRL_LVLEN3;
 
     DMAC->CRCCTRL.reg = 0; // Disable all CRC expectations
 
@@ -78,8 +127,16 @@ SAMD21DMAC::SAMD21DMAC()
 
     this->enable();
 
+#ifdef SAMD21
     NVIC_EnableIRQ(DMAC_IRQn);
     NVIC_SetPriority(DMAC_IRQn, 1);
+#else
+    for (int i = 0; i < 5; ++i)
+    {
+        NVIC_EnableIRQ(DMAC_0_IRQn + i);
+        NVIC_SetPriority(DMAC_0_IRQn + i, 1);
+    }
+#endif
 }
 
 void SAMD21DMAC::enable()
@@ -92,6 +149,104 @@ void SAMD21DMAC::disable()
 {
     DMAC->CTRL.bit.DMAENABLE = 0; // Diable controller, just while we configure it.
     DMAC->CTRL.bit.CRCENABLE = 0; // Disable CRC checking.
+}
+
+void SAMD21DMAC::startTransfer(int channel_number, void *src_addr, void *dst_addr, uint32_t len)
+{
+    CODAL_ASSERT(channel_number >= 0);
+    target_disable_irq();
+    DmacDescriptor &descriptor = dmac.getDescriptor(channel_number);
+    descriptor.BTCNT.bit.BTCNT = len;
+    if (src_addr)
+        descriptor.SRCADDR.reg = (uint32_t)src_addr;
+    if (dst_addr)
+        descriptor.DSTADDR.reg = (uint32_t)dst_addr;
+
+#ifdef SAMD21
+    /** Select the DMA channel and clear software trigger */
+    DMAC->CHID.bit.ID = channel_number;
+    // Clear any previous interrupts.
+    DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_MASK;
+    DMAC->CHCTRLA.bit.ENABLE = true;
+#else
+    DmacChannel *channel = &DMAC->Channel[channel_number];
+    // Clear any previous interrupts.
+    channel->CHINTFLAG.reg = DMAC_CHINTFLAG_MASK;
+    channel->CHCTRLA.bit.ENABLE = true;
+#endif
+
+    target_enable_irq();
+}
+
+void SAMD21DMAC::configureChannel(int channel_number, uint8_t trig_src, uint8_t beat_size,
+                                  void *src_addr, void *dst_addr)
+{
+    CODAL_ASSERT(channel_number >= 0);
+    target_disable_irq();
+
+#ifdef SAMD21
+    DMAC->CHID.bit.ID = channel_number; // Select our allocated channel
+
+    DMAC->CHCTRLA.bit.ENABLE = 0;
+    DMAC->CHCTRLA.bit.SWRST = 1;
+
+    while (DMAC->CHCTRLA.bit.SWRST)
+        ;
+
+    DMAC->SWTRIGCTRL.reg &= (uint32_t)(~(1 << channel_number));
+
+    // DMAC->CHCTRLB.bit.CMD = 0;     // No Command (yet)
+    DMAC->CHCTRLB.bit.TRIGACT = 2; // One trigger per beat transfer
+    DMAC->CHCTRLB.bit.TRIGSRC = trig_src;
+    DMAC->CHCTRLB.bit.LVL = 0;   // Low priority transfer
+    DMAC->CHCTRLB.bit.EVOE = 0;  // Disable output event on every BEAT
+    DMAC->CHCTRLB.bit.EVIE = 0;  // Disable input event
+    DMAC->CHCTRLB.bit.EVACT = 0; // Trigger DMA transfer on BEAT
+
+    DMAC->CHINTENSET.bit.TCMPL = 1; // Enable interrupt on completion.
+#else
+    DmacChannel *channel = &DMAC->Channel[channel_number];
+
+    channel->CHCTRLA.bit.ENABLE = 0;
+    channel->CHCTRLA.bit.SWRST = 1;
+
+    while (channel->CHCTRLA.bit.SWRST)
+        ;
+
+    DMAC->SWTRIGCTRL.reg &= (uint32_t)(~(1 << channel_number));
+
+    channel->CHCTRLA.bit.TRIGACT = 2; // One trigger per beat transfer
+    channel->CHCTRLA.bit.TRIGSRC = trig_src;
+    channel->CHCTRLA.bit.LVL = 0;   // Low priority transfer
+    channel->CHCTRLA.bit.EVOE = 0;  // Disable output event on every BEAT
+    channel->CHCTRLA.bit.EVIE = 0;  // Disable input event
+    channel->CHCTRLA.bit.EVACT = 0; // Trigger DMA transfer on BEAT
+
+    channel->CHINTENSET.bit.TCMPL = 1; // Enable interrupt on completion.
+#endif
+
+    DmacDescriptor &descriptor = dmac.getDescriptor(channel_number);
+
+    descriptor.BTCTRL.reg = 0;
+
+    bool isTx = dst_addr != NULL;
+
+    descriptor.BTCTRL.bit.STEPSIZE = 0;           // Auto increment address by 1 after each beat
+    descriptor.BTCTRL.bit.STEPSEL = isTx ? 0 : 1; // increment applies to SOURCE address
+    descriptor.BTCTRL.bit.DSTINC = isTx ? 0 : 1;  // increment does not apply to destintion address
+    descriptor.BTCTRL.bit.SRCINC = isTx ? 1 : 0;  // increment does apply to source address
+    descriptor.BTCTRL.bit.BEATSIZE = beat_size;   // 16 bit wide transfer.
+    descriptor.BTCTRL.bit.BLOCKACT = 0;           // No action when transfer complete.
+    descriptor.BTCTRL.bit.EVOSEL = 3;             // Strobe events after every BEAT transfer
+
+    descriptor.BTCNT.bit.BTCNT = 0;
+    descriptor.SRCADDR.reg = (uint32_t)src_addr;
+    descriptor.DSTADDR.reg = (uint32_t)dst_addr;
+    descriptor.DESCADDR.reg = 0;
+
+    descriptor.BTCTRL.bit.VALID = 1; // Enable the descritor
+
+    target_enable_irq();
 }
 
 /**

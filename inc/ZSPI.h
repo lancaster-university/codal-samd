@@ -28,27 +28,27 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalConfig.h"
 #include "codal-core/inc/driver-models/SPI.h"
 #include "Pin.h"
+#include "SAMD21DMAC.h"
 
 namespace codal
 {
-class ZSPI;
-struct SPI_HandleWithParent : public SPI_HandleTypeDef
-{
-    ZSPI *zspi_parent;
-};
 
 /**
  * Class definition for SPI service, derived from ARM mbed.
  */
-class ZSPI : public codal::SPI
+class ZSPI : public codal::SPI, codal::DmaComponent
 {
 protected:
     Pin *mosi, *miso, *sclk;
     uint32_t freq;
 
-    SPI_HandleWithParent spi;
-    DMA_HandleTypeDef hdma_tx;
-    DMA_HandleTypeDef hdma_rx;
+    Sercom *sercom;
+    struct spi_m_sync_descriptor spi_desc;
+
+    uint8_t _bits, _mode;    
+    int8_t dmaTxCh, dmaRxCh;
+
+    SAMD21DMAC &dmac;
 
     PVoidCallback doneHandler;
     void *doneHandlerArg;
@@ -57,12 +57,10 @@ protected:
     uint8_t rxCh, txCh;
     uint16_t transferCompleteEventCode;
 
-    void complete();
     void init();
 
 public:
-    static void _complete(uint32_t instance);
-    static void _irq(uint32_t instance);
+    virtual void dmaTransferComplete();
 
     /**
      * Initialize SPI instance with given pins.
