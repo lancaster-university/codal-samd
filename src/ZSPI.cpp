@@ -31,13 +31,16 @@ DEALINGS IN THE SOFTWARE.
 #include "Event.h"
 #include "CodalFiber.h"
 
+extern "C" {
 #include "sercom.h"
+}
+
 #include "pinmap.h"
 
 #include "parts.h"
 
-//#define LOG DMESG
-#define LOG(...) ((void)0)
+#define LOG DMESG
+//#define LOG(...) ((void)0)
 
 namespace codal
 {

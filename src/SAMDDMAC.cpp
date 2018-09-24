@@ -36,6 +36,8 @@ using namespace codal;
 
 static DmaComponent *apps[DMA_DESCRIPTOR_COUNT];
 
+SAMDDMAC *SAMDDMAC::instance;
+
 #ifdef SAMD21
 extern "C" void DMAC_Handler(void)
 {

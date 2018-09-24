@@ -36,6 +36,8 @@ LIST(APPEND TOP_LEVEL_SOURCE
     "${SP}/sercom.c"
     "${SP2}/sercom.c"
     "${ASF}/hal/src/hal_atomic.c"
+    "${ASF}/hal/src/hal_spi_m_sync.c"
+    "${ASF}/hpl/sercom/hpl_sercom.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/asm/CortexContextSwitch.s")
 
 # add them
