@@ -30,6 +30,11 @@ RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE1 "${CMAKE_CURRENT_SOURCE_DIR}/src" "*.c")
 LIST(APPEND TOP_LEVEL_SOURCE
     "${SP}/clocks.c"
     "${SP2}/clocks.c"
+    "${SP2}/pins.c"
+    "${SP}/dma.c"
+    "${SP2}/dma.c"
+    "${SP}/sercom.c"
+    "${SP2}/sercom.c"
     "${ASF}/hal/src/hal_atomic.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/asm/CortexContextSwitch.s")
 

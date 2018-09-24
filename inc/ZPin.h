@@ -351,6 +351,8 @@ public:
      * supplied by ARM mbed.
      */
     //virtual int eventOn(int eventType);
+
+    void _setMux(int mux, bool isInput = false);
 };
 } // namespace codal
 

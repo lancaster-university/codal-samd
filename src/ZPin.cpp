@@ -118,6 +118,14 @@ void ZPin::disconnect()
     status = 0;
 }
 
+void ZPin::_setMux(int mux, bool isInput)
+{
+    disconnect();
+    gpio_set_pin_direction(name, GPIO_DIRECTION_OUT);
+    gpio_set_pin_pull_mode(name, GPIO_PULL_OFF);
+    gpio_set_pin_function(sclk->name, PINMUX(name, mux));
+}
+
 /**
  * Configures this IO pin as a digital output (if necessary) and sets the pin to 'value'.
  *
@@ -166,7 +174,8 @@ int ZPin::setDigitalValue(int value)
 int ZPin::getDigitalValue()
 {
     // Move into a Digital input state if necessary.
-    if (!(status & (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
+    if (!(status &
+          (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
     {
         disconnect();
         gpio_set_pin_function(name, GPIO_PIN_FUNCTION_OFF);
@@ -204,10 +213,10 @@ int ZPin::obtainAnalogChannel()
     if (!(status & IO_STATUS_ANALOG_OUT))
     {
         disconnect();
-        //TODO
-        //pin_function(name, STM_PIN_DATA(STM_PIN_OUTPUT, map(this->pullMode), 0));
+        // TODO
+        // pin_function(name, STM_PIN_DATA(STM_PIN_OUTPUT, map(this->pullMode), 0));
         auto cfg = this->pwmCfg = new pwmout_t;
-        //pwmout_init(cfg, name);
+        // pwmout_init(cfg, name);
         status = IO_STATUS_ANALOG_OUT;
     }
 
@@ -225,7 +234,7 @@ int ZPin::setPWM(uint32_t value, uint32_t period)
 
     auto cfg = this->pwmCfg;
 
-    //TODO
+    // TODO
     /*
     if (cfg->period != period)
         pwmout_period_us(cfg, period);

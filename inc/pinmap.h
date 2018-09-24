@@ -21,43 +21,19 @@
 
 #include "platform_includes.h"
 
-#include "PinNamesTypes.h"
-
-typedef uint32_t PinName;
-
-#define NC (PinName)(-1)
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-    typedef struct
-    {
-        PinName pin;
-        int peripheral;
-        int function;
-    } PinMap;
+#include "pins.h"
 
-    void pin_function(PinName pin, int function);
-    void pin_mode(PinName pin, PinMode mode);
-
-    uint32_t pinmap_peripheral(PinName pin, const PinMap *map);
-    uint32_t pinmap_function(PinName pin, const PinMap *map);
-    uint32_t pinmap_merge(uint32_t a, uint32_t b);
-    void pinmap_pinout(PinName pin, const PinMap *map);
-    uint32_t pinmap_find_peripheral(PinName pin, const PinMap *map);
-    uint32_t pinmap_find_function(PinName pin, const PinMap *map);
+extern uint8_t used_sercoms[SERCOM_INST_NUM];
+const mcu_pin_obj_t *find_mcu_pin(uint8_t pinId);
+int find_sercom(const mcu_pin_obj_t *pin, int sercomIdx);
 
 #ifdef __cplusplus
 }
-
-namespace codal
-{
-class Pin;
-uint32_t codal_setup_pin(Pin *p, uint32_t prev, const PinMap *map);
-} // namespace codal
-
 #endif
 
 #endif
