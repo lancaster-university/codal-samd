@@ -28,7 +28,7 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalConfig.h"
 #include "codal-core/inc/driver-models/SPI.h"
 #include "Pin.h"
-#include "SAMD21DMAC.h"
+#include "SAMDDMAC.h"
 
 namespace codal
 {
@@ -48,7 +48,7 @@ protected:
     uint8_t _bits, _mode;    
     int8_t dmaTxCh, dmaRxCh;
 
-    SAMD21DMAC &dmac;
+    SAMDDMAC &dmac;
 
     PVoidCallback doneHandler;
     void *doneHandlerArg;

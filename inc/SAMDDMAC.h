@@ -27,8 +27,8 @@ DEALINGS IN THE SOFTWARE.
 #include "Pin.h"
 #include "samd21.h"
 
-#ifndef SAMD21DMAC_H
-#define SAMD21DMAC_H
+#ifndef SAMDDMAC_H
+#define SAMDDMAC_H
 
 #define DMA_DESCRIPTOR_ALIGNMENT 16 // SAMD21 Datasheet 20.8.15 and 20.8.16
 #define DMA_DESCRIPTOR_COUNT 8
@@ -46,7 +46,7 @@ static inline int sercom_trigger_src(int sercomIdx, bool tx)
     return SERCOM0_DMAC_ID_RX + sercomIdx * 2 + (tx ? 1 : 0);
 }
 
-class SAMD21DMAC
+class SAMDDMAC
 {
     // descriptors have to be 128 bit aligned - we allocate 16 more bytes, and set descriptors
     // at the right offset in descriptorsBuffer
@@ -58,7 +58,7 @@ public:
     /**
      * Constructor for an instance of a DAC,
      */
-    SAMD21DMAC();
+    SAMDDMAC();
 
     /**
      * Provides the SAMD21 specific DMA descriptor for the given channel number

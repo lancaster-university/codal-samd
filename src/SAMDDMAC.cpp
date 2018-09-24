@@ -25,7 +25,7 @@ DEALINGS IN THE SOFTWARE.
 #include "Timer.h"
 #include "Event.h"
 #include "CodalCompat.h"
-#include "SAMD21DMAC.h"
+#include "SAMDDMAC.h"
 
 #undef ENABLE
 
@@ -94,7 +94,7 @@ extern "C" void DMAC_4_Handler(void)
  */
 void DmaComponent::dmaTransferComplete() {}
 
-SAMD21DMAC::SAMD21DMAC()
+SAMDDMAC::SAMDDMAC()
 {
     uint32_t ptr = (uint32_t)descriptorsBuffer;
     while (ptr & (DMA_DESCRIPTOR_ALIGNMENT - 1))
@@ -139,19 +139,19 @@ SAMD21DMAC::SAMD21DMAC()
 #endif
 }
 
-void SAMD21DMAC::enable()
+void SAMDDMAC::enable()
 {
     DMAC->CTRL.bit.DMAENABLE = 1; // Enable controller.
     DMAC->CTRL.bit.CRCENABLE = 1; // Disable CRC checking.
 }
 
-void SAMD21DMAC::disable()
+void SAMDDMAC::disable()
 {
     DMAC->CTRL.bit.DMAENABLE = 0; // Diable controller, just while we configure it.
     DMAC->CTRL.bit.CRCENABLE = 0; // Disable CRC checking.
 }
 
-void SAMD21DMAC::startTransfer(int channel_number, void *src_addr, void *dst_addr, uint32_t len)
+void SAMDDMAC::startTransfer(int channel_number, void *src_addr, void *dst_addr, uint32_t len)
 {
     CODAL_ASSERT(channel_number >= 0);
     target_disable_irq();
@@ -178,7 +178,7 @@ void SAMD21DMAC::startTransfer(int channel_number, void *src_addr, void *dst_add
     target_enable_irq();
 }
 
-void SAMD21DMAC::configureChannel(int channel_number, uint8_t trig_src, uint8_t beat_size,
+void SAMDDMAC::configureChannel(int channel_number, uint8_t trig_src, uint8_t beat_size,
                                   void *src_addr, void *dst_addr)
 {
     CODAL_ASSERT(channel_number >= 0);
@@ -253,7 +253,7 @@ void SAMD21DMAC::configureChannel(int channel_number, uint8_t trig_src, uint8_t 
  * Provides the SAMD21 specific DMA descriptor for the given channel number
  * @return a valid DMA decriptor, matching a previously allocated channel.
  */
-DmacDescriptor &SAMD21DMAC::getDescriptor(int channel)
+DmacDescriptor &SAMDDMAC::getDescriptor(int channel)
 {
     if (channel < DMA_DESCRIPTOR_COUNT)
         return descriptors[channel + DMA_DESCRIPTOR_COUNT];
@@ -266,7 +266,7 @@ DmacDescriptor &SAMD21DMAC::getDescriptor(int channel)
  * @return a valid channel descriptor in the range 1..DMA_DESCRIPTOR_COUNT, or DEVICE_NO_RESOURCES
  * otherwise.
  */
-int SAMD21DMAC::allocateChannel()
+int SAMDDMAC::allocateChannel()
 {
     for (int i = 0; i < DMA_DESCRIPTOR_COUNT; i++)
     {
@@ -288,7 +288,7 @@ int SAMD21DMAC::allocateChannel()
  *
  * @return DEVICE_OK on success, or DEVICE_INVALID_PARAMETER if the channel number is invalid.
  */
-int SAMD21DMAC::onTransferComplete(int channel, DmaComponent *component)
+int SAMDDMAC::onTransferComplete(int channel, DmaComponent *component)
 {
     if (channel >= DMA_DESCRIPTOR_COUNT)
         return DEVICE_INVALID_PARAMETER;
@@ -299,7 +299,7 @@ int SAMD21DMAC::onTransferComplete(int channel, DmaComponent *component)
 
 #if CONFIG_ENABLED(DEVICE_DBG)
 
-void SAMD21DMAC::showDescriptor(DmacDescriptor *desc)
+void SAMDDMAC::showDescriptor(DmacDescriptor *desc)
 {
     SERIAL_DEBUG->printf("DESC: %p\n", desc);
     SERIAL_DEBUG->printf("DESC->SRCADDR: %p\n", &desc->SRCADDR);
@@ -319,7 +319,7 @@ void SAMD21DMAC::showDescriptor(DmacDescriptor *desc)
     SERIAL_DEBUG->printf("DESCADDR: %p\n", desc->DESCADDR.bit.DESCADDR);
 }
 
-void SAMD21DMAC::showRegisters()
+void SAMDDMAC::showRegisters()
 {
     SERIAL_DEBUG->printf("BASEADDR: 0x%.8x[%p]\n", DMAC->BASEADDR.reg, &descriptors[1]);
     SERIAL_DEBUG->printf("WRBADDR: 0x%.8x [%p]\n", DMAC->WRBADDR.reg, &descriptors[0]);
