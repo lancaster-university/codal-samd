@@ -37,34 +37,34 @@ using namespace codal;
 
 class DmaComponent
 {
-    public:
+public:
     virtual void dmaTransferComplete();
 };
-
 
 class SAMD21DMAC
 {
     // descriptors have to be 128 bit aligned - we allocate 16 more bytes, and set descriptors
     // at the right offset in descriptorsBuffer
-    uint8_t descriptorsBuffer[sizeof(DmacDescriptor) * (DMA_DESCRIPTOR_COUNT * 2) + DMA_DESCRIPTOR_ALIGNMENT];
+    uint8_t descriptorsBuffer[sizeof(DmacDescriptor) * (DMA_DESCRIPTOR_COUNT * 2) +
+                              DMA_DESCRIPTOR_ALIGNMENT];
     DmacDescriptor *descriptors;
 
 public:
-
     /**
-      * Constructor for an instance of a DAC,
-      */
+     * Constructor for an instance of a DAC,
+     */
     SAMD21DMAC();
 
     /**
      * Provides the SAMD21 specific DMA descriptor for the given channel number
      * @return a valid DMA decriptor, matching a previously allocated channel.
      */
-    DmacDescriptor& getDescriptor(int channel);
+    DmacDescriptor &getDescriptor(int channel);
 
     /**
      * Allocates an unused DMA channel, if one is available.
-     * @return a valid channel descriptor in the range 1..DMA_DESCRIPTOR_COUNT, or DEVICE_NO_RESOURCES otherwise.
+     * @return a valid channel descriptor in the range 1..DMA_DESCRIPTOR_COUNT, or
+     * DEVICE_NO_RESOURCES otherwise.
      */
     int allocateChannel();
 
@@ -100,7 +100,6 @@ public:
     void showDescriptor(DmacDescriptor *desc);
     void showRegisters();
 #endif
-
 };
 
 #endif
