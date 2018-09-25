@@ -26,7 +26,7 @@ extern "C"
 {
 #endif
 
-#include "pins.h"
+#include "samd/pins.h"
 
 extern uint8_t used_sercoms[SERCOM_INST_NUM];
 const mcu_pin_obj_t *find_mcu_pin(uint8_t pinId);
