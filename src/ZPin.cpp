@@ -206,39 +206,28 @@ int ZPin::getDigitalValue(PullMode pull)
     return getDigitalValue();
 }
 
-int ZPin::obtainAnalogChannel()
-{
-    // Move into an analogue output state if necessary
-    if (!(status & IO_STATUS_ANALOG_OUT))
-    {
-        disconnect();
-        // TODO
-        // pin_function(name, STM_PIN_DATA(STM_PIN_OUTPUT, map(this->pullMode), 0));
-        auto cfg = this->pwmCfg = new pwmout_t;
-        // pwmout_init(cfg, name);
-        status = IO_STATUS_ANALOG_OUT;
-    }
-
-    return DEVICE_OK;
-}
-
 int ZPin::setPWM(uint32_t value, uint32_t period)
 {
     // sanitise the level value
     if (value > period)
         value = period;
+    
+    int r;
+    
+    // Move into an analogue output state if necessary
+    if (!(status & IO_STATUS_ANALOG_OUT))
+    {
+        disconnect();
+        gpio_set_pin_function(name, GPIO_PIN_FUNCTION_OFF);
+        gpio_set_pin_direction(name, GPIO_DIRECTION_OUT);
+        this->pwmCfg = new pwmout_t;
+        r = pwmout_init(this->pwmCfg, name, value, period);
+        status = IO_STATUS_ANALOG_OUT;
+    } else {
+        r = pwmout_write(this->pwmCfg, value, period);
+    }
 
-    if (obtainAnalogChannel())
-        return DEVICE_INVALID_PARAMETER;
-
-    auto cfg = this->pwmCfg;
-
-    // TODO
-    /*
-    if (cfg->period != period)
-        pwmout_period_us(cfg, period);
-    pwmout_write(cfg, value);
-    */
+    CODAL_ASSERT(r == 0);
 
     return DEVICE_OK;
 }

@@ -27,9 +27,10 @@
  */
 
 #include <stdint.h>
-
+#include <string.h>
 #include <hal_gpio.h>
 
+#include "pinmap.h"
 #include "pwmout_api.h"
 #include "samd/timers.h"
 
@@ -64,7 +65,7 @@ static inline uint32_t common_hal_mcu_processor_get_frequency()
     return CODAL_CPU_MHZ * 1000000;
 }
 
-void common_hal_pulseio_pwmout_set_duty_cycle(pulseio_pwmout_obj_t *self, uint16_t duty);
+int common_hal_pulseio_pwmout_set_duty_cycle(pulseio_pwmout_obj_t *self, uint16_t duty);
 
 void pwmout_reset(void)
 {
@@ -341,9 +342,11 @@ void common_hal_pulseio_pwmout_deinit(pulseio_pwmout_obj_t *self)
     self->pin = NULL;
 }
 
-void common_hal_pulseio_pwmout_set_duty_cycle(pulseio_pwmout_obj_t *self, uint16_t duty)
+int common_hal_pulseio_pwmout_set_duty_cycle(pulseio_pwmout_obj_t *self, uint16_t duty)
 {
     const pin_timer_t *t = self->timer;
+    if (!self->pin)
+        return -100;
     if (t->is_tc)
     {
         uint16_t adjusted_duty = tc_periods[t->index] * duty / 0xffff;
@@ -383,6 +386,7 @@ void common_hal_pulseio_pwmout_set_duty_cycle(pulseio_pwmout_obj_t *self, uint16
         tcc->CCBUF[channel].reg = adjusted_duty;
 #endif
     }
+    return 0;
 }
 
 uint16_t common_hal_pulseio_pwmout_get_duty_cycle(pulseio_pwmout_obj_t *self)
@@ -527,4 +531,35 @@ uint32_t common_hal_pulseio_pwmout_get_frequency(pulseio_pwmout_obj_t *self)
 bool common_hal_pulseio_pwmout_get_variable_frequency(pulseio_pwmout_obj_t *self)
 {
     return self->variable_frequency;
+}
+
+#define DUTY(obj) ((obj->pulse * 0xffff) / obj->period)
+#define FREQ(obj) (1000000000 / obj->period)
+
+int pwmout_init(pwmout_t *obj, uint32_t pin, uint32_t pulse, uint32_t period)
+{
+    memset(obj, 0, sizeof(*obj));
+    obj->period = period;
+    obj->pulse = pulse;
+    return common_hal_pulseio_pwmout_construct(obj, find_mcu_pin(pin), DUTY(obj), FREQ(obj), true);
+}
+
+void pwmout_free(pwmout_t *obj)
+{
+    common_hal_pulseio_pwmout_deinit(obj);
+}
+
+int pwmout_write(pwmout_t *obj, uint32_t pulse, uint32_t period)
+{
+    int r;
+
+    if (obj->period != period)
+    {
+        obj->period = period;
+        r = common_hal_pulseio_pwmout_set_frequency(obj, FREQ(obj));
+        if (r)
+            return r;
+    }
+    obj->pulse = pulse;
+    return common_hal_pulseio_pwmout_set_duty_cycle(obj, DUTY(obj));
 }

@@ -57,12 +57,6 @@ protected:
     int setPWM(uint32_t value, uint32_t period);
 
     /**
-     * Performs a check to ensure that the current Pin is in control of a
-     * DynamicPwm instance, and if it's not, allocates a new DynamicPwm instance.
-     */
-    virtual int obtainAnalogChannel();
-
-    /**
      * This member function manages the calculation of the timestamp of a pulse detected
      * on a pin whilst in IO_STATUS_EVENT_PULSE_ON_EDGE or IO_STATUS_EVENT_ON_EDGE modes.
      *

@@ -17,10 +17,9 @@ typedef struct {
 
 typedef pulseio_pwmout_obj_t pwmout_t;
 
-void pwmout_init(pwmout_t* obj, uint32_t pin);
-void pwmout_free(pwmout_t* obj);
-void pwmout_write(pwmout_t* obj, uint32_t pulse);
-void pwmout_period_us(pwmout_t* obj, int us);
+int pwmout_init(pwmout_t *obj, uint32_t pin, uint32_t pulse, uint32_t period);
+void pwmout_free(pwmout_t *obj);
+int pwmout_write(pwmout_t *obj, uint32_t pulse, uint32_t period);
 
 #ifdef __cplusplus
 }
