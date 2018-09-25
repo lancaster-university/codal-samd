@@ -4,6 +4,8 @@
 extern "C" {
 #endif
 
+#include "samd/pins.h"
+
 typedef struct {
     uint32_t period;
     uint32_t pulse;

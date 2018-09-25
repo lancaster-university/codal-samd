@@ -1,3 +1,4 @@
+// Based on:
 /*
  * This file is part of the MicroPython project, http://micropython.org/
  *
@@ -27,17 +28,14 @@
 
 #include <stdint.h>
 
-#include "py/runtime.h"
-#include "common-hal/pulseio/PWMOut.h"
-#include "shared-bindings/pulseio/PWMOut.h"
-#include "shared-bindings/microcontroller/Processor.h"
+#include <hal_gpio.h>
 
-#include "atmel_start_pins.h"
-#include "hal/utils/include/utils_repeat_macro.h"
+#include "pwmout_api.h"
 #include "samd/timers.h"
-#include "supervisor/shared/translate.h"
 
-#include "samd/pins.h"
+//#include "atmel_start_pins.h"
+#include "hal/utils/include/utils_repeat_macro.h"
+//#include "supervisor/shared/translate.h"
 
 #undef ENABLE
 
@@ -60,6 +58,13 @@ uint8_t tcc_channels[3]; // Set by pwmout_reset() to {0xf0, 0xfc, 0xfc} initiall
 #ifdef SAMD51
 uint8_t tcc_channels[5]; // Set by pwmout_reset() to {0xc0, 0xf0, 0xf8, 0xfc, 0xfc} initially.
 #endif
+
+static inline uint32_t common_hal_mcu_processor_get_frequency()
+{
+    return CODAL_CPU_MHZ * 1000000;
+}
+
+void common_hal_pulseio_pwmout_set_duty_cycle(pulseio_pwmout_obj_t *self, uint16_t duty);
 
 void pwmout_reset(void)
 {
@@ -111,8 +116,8 @@ bool channel_ok(const pin_timer_t *t)
     return (!t->is_tc && ((tcc_channels[t->index] & channel_bit) == 0)) || t->is_tc;
 }
 
-void common_hal_pulseio_pwmout_construct(pulseio_pwmout_obj_t *self, const mcu_pin_obj_t *pin,
-                                         uint16_t duty, uint32_t frequency, bool variable_frequency)
+int common_hal_pulseio_pwmout_construct(pulseio_pwmout_obj_t *self, const mcu_pin_obj_t *pin,
+                                        uint16_t duty, uint32_t frequency, bool variable_frequency)
 {
     self->pin = pin;
     self->variable_frequency = variable_frequency;
@@ -123,12 +128,12 @@ void common_hal_pulseio_pwmout_construct(pulseio_pwmout_obj_t *self, const mcu_p
 #endif
     )
     {
-        mp_raise_ValueError(translate("Invalid pin"));
+        return -1; // "Invalid pin"
     }
 
     if (frequency == 0 || frequency > 6000000)
     {
-        mp_raise_ValueError(translate("Invalid PWM frequency"));
+        return -2; // "Invalid PWM frequency"
     }
 
     // Figure out which timer we are using.
@@ -209,14 +214,9 @@ void common_hal_pulseio_pwmout_construct(pulseio_pwmout_obj_t *self, const mcu_p
         if (timer == NULL)
         {
             if (found)
-            {
-                mp_raise_ValueError(translate("All timers for this pin are in use"));
-            }
+                return -3; // "All timers for this pin are in use"
             else
-            {
-                mp_raise_RuntimeError(translate("All timers in use"));
-            }
-            return;
+                return -4; //  "All timers in use"
         }
 
         uint8_t resolution = 0;
@@ -295,14 +295,16 @@ void common_hal_pulseio_pwmout_construct(pulseio_pwmout_obj_t *self, const mcu_p
 
     self->timer = timer;
 
-    gpio_set_pin_function(pin->number, GPIO_PIN_FUNCTION_E + mux_position);
+    gpio_set_pin_function(pin->number, MUX_E + mux_position);
 
     common_hal_pulseio_pwmout_set_duty_cycle(self, duty);
+
+    return 0;
 }
 
 bool common_hal_pulseio_pwmout_deinited(pulseio_pwmout_obj_t *self)
 {
-    return self->pin == mp_const_none;
+    return self->pin == NULL;
 }
 
 void common_hal_pulseio_pwmout_deinit(pulseio_pwmout_obj_t *self)
@@ -335,11 +337,11 @@ void common_hal_pulseio_pwmout_deinit(pulseio_pwmout_obj_t *self)
             }
         }
     }
-    reset_pin_number(self->pin->number);
-    self->pin = mp_const_none;
+    // reset_pin_number(self->pin->number);
+    self->pin = NULL;
 }
 
-extern void common_hal_pulseio_pwmout_set_duty_cycle(pulseio_pwmout_obj_t *self, uint16_t duty)
+void common_hal_pulseio_pwmout_set_duty_cycle(pulseio_pwmout_obj_t *self, uint16_t duty)
 {
     const pin_timer_t *t = self->timer;
     if (t->is_tc)
@@ -425,11 +427,11 @@ uint16_t common_hal_pulseio_pwmout_get_duty_cycle(pulseio_pwmout_obj_t *self)
     }
 }
 
-void common_hal_pulseio_pwmout_set_frequency(pulseio_pwmout_obj_t *self, uint32_t frequency)
+int common_hal_pulseio_pwmout_set_frequency(pulseio_pwmout_obj_t *self, uint32_t frequency)
 {
     if (frequency == 0 || frequency > 6000000)
     {
-        mp_raise_ValueError(translate("Invalid PWM frequency"));
+        return -2; // "Invalid PWM frequency"
     }
     const pin_timer_t *t = self->timer;
     uint8_t resolution;
@@ -499,6 +501,8 @@ void common_hal_pulseio_pwmout_set_frequency(pulseio_pwmout_obj_t *self, uint32_
     }
 
     common_hal_pulseio_pwmout_set_duty_cycle(self, old_duty);
+
+    return 0;
 }
 
 uint32_t common_hal_pulseio_pwmout_get_frequency(pulseio_pwmout_obj_t *self)
