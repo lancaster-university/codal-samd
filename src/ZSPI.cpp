@@ -125,6 +125,7 @@ void ZSPI::init()
                 continue;
 
             sercom = sercom_insts[sercomIdx];
+            used_sercoms[sercomIdx] = 1;
 
             // Set up SPI clocks on SERCOM.
             samd_peripherals_sercom_clock_init(sercom, sercomIdx);
@@ -157,6 +158,8 @@ void ZSPI::init()
 
             if (miso)
                 miso->_setMux(MUX(miso_si), true);
+            
+            break;
         }
 
         if (!sercom)
@@ -212,12 +215,15 @@ ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk) : codal::SPI()
     this->miso = (ZPin*)&miso;
     this->sclk = (ZPin*)&sclk;
 
-    this->needsInit = true;
+
     this->transferCompleteEventCode = codal::allocateNotifyEvent();
 
     _mode = 0;
     _bits = 8;
+    freq = 250000;
     sercom = NULL;
+
+    needsInit = true;
 
     ZERO(spi_desc);
 }

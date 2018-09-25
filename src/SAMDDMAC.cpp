@@ -28,6 +28,7 @@ DEALINGS IN THE SOFTWARE.
 #include "SAMDDMAC.h"
 #include "codal_target_hal.h"
 #include <parts.h>
+#include "CodalDmesg.h"
 
 
 #undef ENABLE
@@ -166,9 +167,9 @@ void SAMDDMAC::startTransfer(int channel_number, const void *src_addr, void *dst
     DmacDescriptor &descriptor = getDescriptor(channel_number);
     descriptor.BTCNT.bit.BTCNT = len;
     if (src_addr)
-        descriptor.SRCADDR.reg = (uint32_t)src_addr;
+        descriptor.SRCADDR.reg = (uint32_t)src_addr + len;
     if (dst_addr)
-        descriptor.DSTADDR.reg = (uint32_t)dst_addr;
+        descriptor.DSTADDR.reg = (uint32_t)dst_addr + len;
 
 #ifdef SAMD21
     /** Select the DMA channel and clear software trigger */
