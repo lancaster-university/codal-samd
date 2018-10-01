@@ -5,21 +5,20 @@
 #include "CodalComponent.h"
 #include "CodalConfig.h"
 #include "SingleWireSerial.h"
-#include "PktSerial.h"
+#include "JACDAC.h"
 #include "pinmap.h"
 #include "MemberFunctionCallback.h"
+#include "SAMDDMAC.h"
 
 namespace codal
 {
 
-    class ZSingleWireSerial : public DMASingleWireSerial
+    class ZSingleWireSerial : public DMASingleWireSerial, public DmaComponent
     {
-        UART_HandleTypeDef uart;
-        DMA_HandleTypeDef hdma_tx;
-        DMA_HandleTypeDef hdma_rx;
+        uint32_t baud;
 
-        uint8_t* buf;
-        uint16_t bufLen;
+        SAMDDMAC usart_dma;
+        int dmaChannel;
 
         protected:
         virtual void configureRxInterrupt(int enable);
@@ -32,10 +31,9 @@ namespace codal
 
         static void _complete(uint32_t instance, uint32_t mode);
 
-        PktSerialPkt* currentBuffer;
+        JDPkt* currentBuffer;
         uint32_t currentBufferIndex;
 
-        // only works with a TX uart pin on STM.
         ZSingleWireSerial(Pin& p);
 
         virtual int putc(char c);
@@ -54,6 +52,8 @@ namespace codal
         virtual int setMode(SingleWireMode sw);
 
         virtual int sendBreak();
+
+        void dmaTransferComplete();
     };
 }
 
