@@ -8,7 +8,7 @@ set(SP "${CMAKE_CURRENT_SOURCE_DIR}/samd-peripherals/samd")
 set(SP2 "${SP}/samd51")
 
 # find sources and headers
-SET(TOP_LEVEL_INCLUDE_DIRS0 
+SET(TOP_LEVEL_INCLUDE_DIRS0
     "${ASF}"
     "${ASF}/include"
     "${ASF}/config"
@@ -21,6 +21,7 @@ SET(TOP_LEVEL_INCLUDE_DIRS0
 )
 
 RECURSIVE_FIND_DIR(TOP_LEVEL_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/inc" "*.h")
+RECURSIVE_FIND_DIR(TOP_LEVEL_INCLUDE_DIRS1 "${ASF}" "*.h")
 
 RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE0 "${CMAKE_CURRENT_SOURCE_DIR}/src" "*.cpp")
 RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE1 "${CMAKE_CURRENT_SOURCE_DIR}/src" "*.c")
@@ -37,11 +38,13 @@ LIST(APPEND TOP_LEVEL_SOURCE
     "${SP2}/sercom.c"
     "${ASF}/hal/src/hal_atomic.c"
     "${ASF}/hal/src/hal_spi_m_sync.c"
+    "${ASF}/hal/src/hal_usart_async.c"
+    "${ASF}/hal/src/hal_io.c"
     "${ASF}/hpl/sercom/hpl_sercom.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/asm/CortexContextSwitch.s")
 
 # add them
-include_directories(${TOP_LEVEL_INCLUDE_DIRS0} ${TOP_LEVEL_INCLUDE_DIRS} ${INCLUDE_DIRS})
+include_directories(${TOP_LEVEL_INCLUDE_DIRS0} ${TOP_LEVEL_INCLUDE_DIRS1} ${TOP_LEVEL_INCLUDE_DIRS} ${INCLUDE_DIRS})
 
 # create our target
 add_library(codal-samd ${TOP_LEVEL_SOURCE} ${TOP_LEVEL_SOURCE0} ${TOP_LEVEL_SOURCE1})
