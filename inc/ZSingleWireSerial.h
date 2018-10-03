@@ -17,7 +17,7 @@ namespace codal
     {
         uint32_t baud;
 
-        SAMDDMAC usart_dma;
+        DmaInstance* usart_dma;
         int dmaChannel;
 
         protected:

@@ -9,6 +9,11 @@
 #include "hal_usart_async.h"
 #include "peripheral_clk_config.h"
 
+extern "C"
+{
+#include "sercom.h"
+}
+
 using namespace codal;
 
 #define TX_CONFIGURED       0x02
@@ -24,9 +29,10 @@ using namespace codal;
 
 struct _usart_async_device USART_INSTANCE;
 
+extern void set_gpio(int);
 void ZSingleWireSerial::dmaTransferComplete()
 {
-
+    set_gpio(1);
 }
 
 void ZSingleWireSerial::_complete(uint32_t instance, uint32_t mode)
@@ -69,19 +75,23 @@ void ZSingleWireSerial::configureRxInterrupt(int enable)
 {
 }
 
-
 ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 {
     // usart_dma.disable();
     // dmaChannel = usart_dma.allocateChannel();
     // usart_dma.onTransferComplete(dmaChannel, this);
-    hri_gclk_write_PCHCTRL_reg(GCLK, SERCOM0_GCLK_ID_CORE, CONF_GCLK_SERCOM0_CORE_SRC | (1 << GCLK_PCHCTRL_CHEN_Pos));
-	hri_gclk_write_PCHCTRL_reg(GCLK, SERCOM0_GCLK_ID_SLOW, CONF_GCLK_SERCOM0_SLOW_SRC | (1 << GCLK_PCHCTRL_CHEN_Pos));
-	hri_mclk_set_APBAMASK_SERCOM0_bit(MCLK);
 
+    // https://github.com/mmoskal/samd-peripherals/blob/master/samd/samd51/sercom.c#L67
+    samd_peripherals_sercom_clock_init(SERCOM0, 0);
     _usart_async_init(&USART_INSTANCE, SERCOM0);
 
     // baud = 65536 * (1 - 16 * (115200/120000000))
+
+    DmaFactory factory;
+    usart_dma = factory.allocate();
+    CODAL_ASSERT(usart_dma != NULL);
+
+    usart_dma->onTransferComplete(this);
 
     setBaud(115200);
 }
@@ -98,7 +108,7 @@ uint32_t ZSingleWireSerial::getBaud()
 {
     return this->baud;
 }
-extern void set_gpio(int);
+
 int ZSingleWireSerial::putc(char c)
 {
     if (!(status & TX_CONFIGURED))
@@ -237,8 +247,12 @@ int ZSingleWireSerial::receive(uint8_t* data, int len)
 
 int ZSingleWireSerial::sendDMA(uint8_t* data, int len)
 {
-    // usart_dma.configureChannel(dmaChannel, DMA_TRIGGER_ACTION_BEAT, DMA_BEAT_SIZE_BYTE, )
-    return send(data,len);
+    if (!(status & RX_CONFIGURED))
+        setMode(SingleWireTx);
+
+    usart_dma->configure(sercom_trigger_src(0, true), BeatByte, NULL, (volatile void*)&SERCOM0->USART.DATA.reg);
+    usart_dma->transfer((const void*)data, NULL, len);
+    return DEVICE_OK;
 }
 
 int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
@@ -246,13 +260,18 @@ int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
     if (!(status & RX_CONFIGURED))
         setMode(SingleWireRx);
 
-    return receive(data,len);
+    usart_dma->configure(sercom_trigger_src(0, false), BeatByte, (volatile void*)SERCOM0->USART.DATA.reg, NULL);
+    usart_dma->transfer(NULL, data, len);
+
+    return DEVICE_OK;
 }
 
 int ZSingleWireSerial::abortDMA()
 {
     if (!(status & (RX_CONFIGURED | TX_CONFIGURED)))
         return DEVICE_INVALID_PARAMETER;
+
+    usart_dma->abort();
 
     // abort dma transfer
     return DEVICE_OK;
