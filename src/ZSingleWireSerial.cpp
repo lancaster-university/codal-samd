@@ -65,7 +65,7 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p, Sercom* instance, int instance_numb
     usart_rx_dma->onTransferComplete(this);
 
     usart_tx_dma->configure(sercom_trigger_src(this->instance_number, true), BeatByte, NULL, (volatile void*)&CURRENT_USART->USART.DATA.reg);
-    usart_rx_dma->configure(sercom_trigger_src(this->instance_number, false), BeatByte, (volatile void*)CURRENT_USART->USART.DATA.reg, NULL);
+    usart_rx_dma->configure(sercom_trigger_src(this->instance_number, false), BeatByte, (volatile void*)&CURRENT_USART->USART.DATA.reg, NULL);
 
     setBaud(115200);
 }
@@ -235,7 +235,7 @@ int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
     if (!(status & RX_CONFIGURED))
         setMode(SingleWireRx);
 
-    usart_tx_dma->transfer(NULL, data, len);
+    usart_rx_dma->transfer(NULL, data, len);
 
     return DEVICE_OK;
 }
