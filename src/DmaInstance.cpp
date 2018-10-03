@@ -50,6 +50,15 @@ void DmaInstance::enable()
 #endif
 }
 
+void DmaInstance::trigger(DmaCode c)
+{
+    disable();
+
+    if (this->cb)
+        this->cb->dmaTransferComplete(c);
+}
+
+
 void DmaInstance::abort()
 {
     disable();
@@ -142,6 +151,7 @@ void DmaInstance::configure(uint8_t trig_src, DmaBeatSize beat_size, volatile vo
     channel->CHCTRLA.bit.EVACT = 0; // Trigger DMA transfer on BEAT
     */
 
+    channel->CHINTENSET.bit.TERR = 1; // Enable interrupt on error.
     channel->CHINTENSET.bit.TCMPL = 1; // Enable interrupt on completion.
 #endif
 

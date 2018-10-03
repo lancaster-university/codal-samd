@@ -100,6 +100,8 @@ class DmaInstance
     DmacDescriptor& getDescriptor();
     void setDescriptor(DmacDescriptor* d);
 
+    void trigger(DmaCode c);
+
     ~DmaInstance();
 };
 

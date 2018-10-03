@@ -6,30 +6,17 @@
 #include "CodalFiber.h"
 
 #include "driver_init.h"
-#include "hal_usart_async.h"
 #include "peripheral_clk_config.h"
-
-extern "C"
-{
-#include "sercom.h"
-}
 
 using namespace codal;
 
 #define TX_CONFIGURED       0x02
 #define RX_CONFIGURED       0x04
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
-
-#define UART_ON (uart.Instance->CR1 & USART_CR1_UE)
-
 #define LOG DMESG
 
-#define ZERO(f) memset(&f, 0, sizeof(f))
+#define CURRENT_USART ((Sercom*)(USART_INSTANCE.hw))
 
-struct _usart_async_device USART_INSTANCE;
-
-extern void set_gpio(int);
 void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
 {
     uint16_t mode = 0;
@@ -47,25 +34,26 @@ void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
 
     Event evt(this->id, mode, CREATE_ONLY);
 
+    // if we have a cb member function, we invoke
+    // otherwise fire the event for any listeners.
     if (this->cb)
         this->cb->fire(evt);
+    else
+        evt.fire();
 }
 
 void ZSingleWireSerial::configureRxInterrupt(int enable)
 {
 }
 
-ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
+ZSingleWireSerial::ZSingleWireSerial(Pin& p, Sercom* instance, int instance_number, uint32_t pinmux, uint8_t pad) : DMASingleWireSerial(p)
 {
-    // usart_dma.disable();
-    // dmaChannel = usart_dma.allocateChannel();
-    // usart_dma.onTransferComplete(dmaChannel, this);
-
-    // https://github.com/mmoskal/samd-peripherals/blob/master/samd/samd51/sercom.c#L67
-    samd_peripherals_sercom_clock_init(SERCOM0, 0);
-    _usart_async_init(&USART_INSTANCE, SERCOM0);
-
-    // baud = 65536 * (1 - 16 * (115200/120000000))
+    this->id = DEVICE_ID_SERIAL;
+    this->pad = pad;
+    this->pinmux = pinmux;
+    this->instance_number = instance_number;
+    samd_peripherals_sercom_clock_init(instance, instance_number);
+    _usart_async_init(&USART_INSTANCE, instance);
 
     DmaFactory factory;
     usart_dma = factory.allocate();
@@ -80,7 +68,7 @@ int ZSingleWireSerial::setBaud(uint32_t baud)
 {
     uint32_t val = _usart_async_calculate_baud_rate(baud, CONF_GCLK_SERCOM0_CORE_FREQUENCY, 16, USART_BAUDRATE_ASYNCH_ARITHMETIC, 0);
     _usart_async_set_baud_rate(&USART_INSTANCE, val);
-    this->baud = val;
+    this->baud = baud;
     return DEVICE_OK;
 }
 
@@ -94,8 +82,10 @@ int ZSingleWireSerial::putc(char c)
     if (!(status & TX_CONFIGURED))
         setMode(SingleWireTx);
 
-    SERCOM0->USART.DATA.reg = c;
-    while(!(SERCOM0->USART.INTFLAG.bit.DRE));
+    CURRENT_USART->USART.DATA.reg = c;
+    while(!(CURRENT_USART->USART.INTFLAG.bit.DRE));
+
+    return DEVICE_OK;
 }
 
 int ZSingleWireSerial::getc()
@@ -105,8 +95,8 @@ int ZSingleWireSerial::getc()
 
     char c = 0;
 
-    while(!(SERCOM0->USART.INTFLAG.bit.RXC));
-    c = SERCOM0->USART.DATA.reg;
+    while(!(CURRENT_USART->USART.INTFLAG.bit.RXC));
+    c = CURRENT_USART->USART.DATA.reg;
 
     return c;
 }
@@ -115,29 +105,29 @@ int ZSingleWireSerial::configureTx(int enable)
 {
     if (enable && !(status & TX_CONFIGURED))
     {
-        gpio_set_pin_function(p.name, PINMUX_PA04D_SERCOM0_PAD0);
+        gpio_set_pin_function(p.name, this->pinmux);
 
-        SERCOM0->USART.CTRLA.bit.ENABLE = 0;
-        while(SERCOM0->USART.SYNCBUSY.bit.ENABLE);
+        CURRENT_USART->USART.CTRLA.bit.ENABLE = 0;
+        while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
-        SERCOM0->USART.CTRLA.bit.SAMPR = 0;
-        SERCOM0->USART.CTRLA.bit.TXPO = 0;
-        SERCOM0->USART.CTRLB.bit.CHSIZE = 0;
+        CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
+        CURRENT_USART->USART.CTRLA.bit.TXPO = this->pad;
+        CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0;
 
-        SERCOM0->USART.CTRLA.bit.ENABLE = 1;
-        while(SERCOM0->USART.SYNCBUSY.bit.ENABLE);
+        CURRENT_USART->USART.CTRLA.bit.ENABLE = 1;
+        while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
-        SERCOM0->USART.CTRLB.bit.TXEN = 1;
-        while(SERCOM0->USART.SYNCBUSY.bit.CTRLB);
+        CURRENT_USART->USART.CTRLB.bit.TXEN = 1;
+        while(CURRENT_USART->USART.SYNCBUSY.bit.CTRLB);
         status |= TX_CONFIGURED;
     }
     else if (status & TX_CONFIGURED && !enable)
     {
-        SERCOM0->USART.CTRLB.bit.TXEN = 0;
-        while(SERCOM0->USART.SYNCBUSY.bit.CTRLB);
+        CURRENT_USART->USART.CTRLB.bit.TXEN = 0;
+        while(CURRENT_USART->USART.SYNCBUSY.bit.CTRLB);
         //
-        SERCOM0->USART.CTRLA.bit.ENABLE = 0;
-        while(SERCOM0->USART.SYNCBUSY.bit.ENABLE);
+        CURRENT_USART->USART.CTRLA.bit.ENABLE = 0;
+        while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
         gpio_set_pin_function(p.name, GPIO_PIN_FUNCTION_OFF);
         status &= ~TX_CONFIGURED;
@@ -150,30 +140,30 @@ int ZSingleWireSerial::configureRx(int enable)
 {
     if (enable && !(status & RX_CONFIGURED))
     {
-        gpio_set_pin_function(p.name, PINMUX_PA04D_SERCOM0_PAD0);
+        gpio_set_pin_function(p.name, this->pinmux);
 
-        SERCOM0->USART.CTRLA.bit.ENABLE = 0;
-        while(SERCOM0->USART.SYNCBUSY.bit.ENABLE);
+        CURRENT_USART->USART.CTRLA.bit.ENABLE = 0;
+        while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
-        SERCOM0->USART.CTRLA.bit.SAMPR = 0;
-        SERCOM0->USART.CTRLA.bit.RXPO = 0; // PAD 0
-        SERCOM0->USART.CTRLB.bit.CHSIZE = 0; // 8 BIT
+        CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
+        CURRENT_USART->USART.CTRLA.bit.RXPO = this->pad; // PAD X
+        CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0; // 8 BIT
 
-        SERCOM0->USART.CTRLA.bit.ENABLE = 1;
-        while(SERCOM0->USART.SYNCBUSY.bit.ENABLE);
+        CURRENT_USART->USART.CTRLA.bit.ENABLE = 1;
+        while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
-        SERCOM0->USART.CTRLB.bit.RXEN = 1;
-        while(SERCOM0->USART.SYNCBUSY.bit.CTRLB);
+        CURRENT_USART->USART.CTRLB.bit.RXEN = 1;
+        while(CURRENT_USART->USART.SYNCBUSY.bit.CTRLB);
 
         status |= RX_CONFIGURED;
     }
     else if (status & RX_CONFIGURED)
     {
-        SERCOM0->USART.CTRLB.bit.RXEN = 0;
-        while(SERCOM0->USART.SYNCBUSY.bit.CTRLB);
+        CURRENT_USART->USART.CTRLB.bit.RXEN = 0;
+        while(CURRENT_USART->USART.SYNCBUSY.bit.CTRLB);
         //
-        SERCOM0->USART.CTRLA.bit.ENABLE = 0;
-        while(SERCOM0->USART.SYNCBUSY.bit.ENABLE);
+        CURRENT_USART->USART.CTRLA.bit.ENABLE = 0;
+        while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
         gpio_set_pin_function(p.name, GPIO_PIN_FUNCTION_OFF);
         status &= ~RX_CONFIGURED;
@@ -230,7 +220,7 @@ int ZSingleWireSerial::sendDMA(uint8_t* data, int len)
     if (!(status & RX_CONFIGURED))
         setMode(SingleWireTx);
 
-    usart_dma->configure(sercom_trigger_src(0, true), BeatByte, NULL, (volatile void*)&SERCOM0->USART.DATA.reg);
+    usart_dma->configure(sercom_trigger_src(this->instance_number, true), BeatByte, NULL, (volatile void*)&CURRENT_USART->USART.DATA.reg);
     usart_dma->transfer((const void*)data, NULL, len);
     return DEVICE_OK;
 }
@@ -240,7 +230,7 @@ int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
     if (!(status & RX_CONFIGURED))
         setMode(SingleWireRx);
 
-    usart_dma->configure(sercom_trigger_src(0, false), BeatByte, (volatile void*)SERCOM0->USART.DATA.reg, NULL);
+    usart_dma->configure(sercom_trigger_src(this->instance_number, false), BeatByte, (volatile void*)CURRENT_USART->USART.DATA.reg, NULL);
     usart_dma->transfer(NULL, data, len);
 
     return DEVICE_OK;

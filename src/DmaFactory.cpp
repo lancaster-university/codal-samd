@@ -52,9 +52,9 @@ extern "C" void DMAC_Handler(void)
     if (DmaFactory::instance->apps[channel] != NULL && DmaFactory::instance->apps[channel]->cb)
     {
         if (err)
-            DmaFactory::instance->apps[channel]->cb.dmaTransferComplete(DMA_ERROR);
+            DmaFactory::instance->apps[channel]->trigger(DMA_ERROR);
         else
-            DmaFactory::instance->apps[channel]->cb.dmaTransferComplete(DMA_COMPLETE);
+            DmaFactory::instance->apps[channel]->trigger(DMA_COMPLETE);
     }
 
     DMAC->CHID.bit.ID = oldChannel;
@@ -68,7 +68,7 @@ static void dmac_irq_handler()
     {
         hri_dmac_clear_CHINTFLAG_TERR_bit(DMAC, channel);
         if (DmaFactory::instance->apps[channel] != NULL && DmaFactory::instance->apps[channel]->cb)
-            DmaFactory::instance->apps[channel]->cb->dmaTransferComplete(DMA_ERROR);
+            DmaFactory::instance->apps[channel]->trigger(DMA_ERROR);
         // tmp_resource->dma_cb.error(tmp_resource);
     }
     else if (hri_dmac_get_CHINTFLAG_TCMPL_bit(DMAC, channel))
@@ -76,8 +76,10 @@ static void dmac_irq_handler()
         hri_dmac_clear_CHINTFLAG_TCMPL_bit(DMAC, channel);
 
         if (DmaFactory::instance->apps[channel] != NULL && DmaFactory::instance->apps[channel]->cb)
-            DmaFactory::instance->apps[channel]->cb->dmaTransferComplete(DMA_COMPLETE);
+            DmaFactory::instance->apps[channel]->trigger(DMA_COMPLETE);
     }
+
+    hri_dmac_clear_CHINTFLAG_reg(DMAC, channel, 0);
 }
 
 extern "C" void DMAC_0_Handler(void)
@@ -144,8 +146,7 @@ DmaFactory::DmaFactory()
 
     DMAC->CRCCTRL.reg = 0; // Disable all CRC expectations
 
-    DMAC->BASEADDR.reg =
-        (uint32_t)&descriptors[DMA_DESCRIPTOR_COUNT]; // Initialise Descriptor table
+    DMAC->BASEADDR.reg = (uint32_t)&descriptors[DMA_DESCRIPTOR_COUNT]; // Initialise Descriptor table
     DMAC->WRBADDR.reg = (uint32_t)&descriptors[0];    // initialise Writeback table
 
     this->enable();
