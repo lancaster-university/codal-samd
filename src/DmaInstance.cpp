@@ -52,7 +52,8 @@ void DmaInstance::enable()
 
 void DmaInstance::abort()
 {
-
+    disable();
+    onTransferComplete(DMA_ERROR);
 }
 
 /**
