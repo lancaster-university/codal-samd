@@ -35,9 +35,8 @@ DEALINGS IN THE SOFTWARE.
 
 using namespace codal;
 
-static DmaComponent *apps[DMA_DESCRIPTOR_COUNT];
-
-SAMDDMAC *SAMDDMAC::instance;
+DmaFactory* DmaFactory::instance = NULL;
+DmaInstance* DmaFactory::apps[DMA_DESCRIPTOR_COUNT];
 
 #ifdef SAMD21
 extern "C" void DMAC_Handler(void)
@@ -46,10 +45,17 @@ extern "C" void DMAC_Handler(void)
 
     int channel = DMAC->INTPEND.bit.ID;
     DMAC->CHID.bit.ID = channel;
-    DMAC->CHINTFLAG.reg = DMAC_CHINTENCLR_TCMPL;
 
-    if (apps[channel] != NULL)
-        apps[channel]->dmaTransferComplete();
+    bool err = (DMAC->CHINTFLAG.bit.ERROR > 0) ? true : false;
+    DMAC->CHINTFLAG.reg= DMAC_CHINTENCLR_TCMPL;
+
+    if (DmaFactory::instance->apps[channel] != NULL && DmaFactory::instance->apps[channel]->cb)
+    {
+        if (err)
+            DmaFactory::instance->apps[channel]->cb.dmaTransferComplete(DMA_ERROR);
+        else
+            DmaFactory::instance->apps[channel]->cb.dmaTransferComplete(DMA_COMPLETE);
+    }
 
     DMAC->CHID.bit.ID = oldChannel;
 }
@@ -61,13 +67,16 @@ static void dmac_irq_handler()
     if (hri_dmac_get_CHINTFLAG_TERR_bit(DMAC, channel))
     {
         hri_dmac_clear_CHINTFLAG_TERR_bit(DMAC, channel);
+        if (DmaFactory::instance->apps[channel] != NULL && DmaFactory::instance->apps[channel]->cb)
+            DmaFactory::instance->apps[channel]->cb->dmaTransferComplete(DMA_ERROR);
         // tmp_resource->dma_cb.error(tmp_resource);
     }
     else if (hri_dmac_get_CHINTFLAG_TCMPL_bit(DMAC, channel))
     {
         hri_dmac_clear_CHINTFLAG_TCMPL_bit(DMAC, channel);
-        if (apps[channel] != NULL)
-            apps[channel]->dmaTransferComplete();
+
+        if (DmaFactory::instance->apps[channel] != NULL && DmaFactory::instance->apps[channel]->cb)
+            DmaFactory::instance->apps[channel]->cb->dmaTransferComplete(DMA_COMPLETE);
     }
 }
 
@@ -100,11 +109,14 @@ extern "C" void DMAC_4_Handler(void)
 /**
  * Base implementation of a DMA callback
  */
-void DmaComponent::dmaTransferComplete() {}
+void DmaComponent::dmaTransferComplete(DmaCode) {}
 
-SAMDDMAC::SAMDDMAC()
+DmaFactory::DmaFactory()
 {
-    SAMDDMAC::instance = this;
+    if (instance == NULL)
+        DmaFactory::instance = this;
+    else
+        return;
 
     uint32_t ptr = (uint32_t)descriptorsBuffer;
     while (ptr & (DMA_DESCRIPTOR_ALIGNMENT - 1))
@@ -112,6 +124,7 @@ SAMDDMAC::SAMDDMAC()
     descriptors = (DmacDescriptor *)ptr;
 
     memclr(descriptors, sizeof(DmacDescriptor) * (DMA_DESCRIPTOR_COUNT * 2));
+    memclr(apps, sizeof(DmaInstance*) * DMA_DESCRIPTOR_COUNT);
 
     // Set up to DMA Controller
     this->disable();
@@ -150,126 +163,26 @@ SAMDDMAC::SAMDDMAC()
 #endif
 }
 
-void SAMDDMAC::enable()
+void DmaFactory::enable()
 {
     DMAC->CTRL.bit.DMAENABLE = 1; // Enable controller.
 }
 
-void SAMDDMAC::disable()
+void DmaFactory::disable()
 {
-    DMAC->CTRL.bit.DMAENABLE = 0; // Diable controller, just while we configure it.
-}
-
-void SAMDDMAC::startTransfer(int channel_number, const void *src_addr, void *dst_addr, uint32_t len)
-{
-    CODAL_ASSERT(channel_number >= 0);
-    target_disable_irq();
-    DmacDescriptor &descriptor = getDescriptor(channel_number);
-    descriptor.BTCNT.bit.BTCNT = len;
-    if (src_addr)
-        descriptor.SRCADDR.reg = (uint32_t)src_addr + len;
-    if (dst_addr)
-        descriptor.DSTADDR.reg = (uint32_t)dst_addr + len;
-
-#ifdef SAMD21
-    /** Select the DMA channel and clear software trigger */
-    DMAC->CHID.bit.ID = channel_number;
-    // Clear any previous interrupts.
-    DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_MASK;
-    DMAC->CHCTRLA.bit.ENABLE = true;
-#else
-    DmacChannel *channel = &DMAC->Channel[channel_number];
-    // Clear any previous interrupts.
-    channel->CHINTFLAG.reg = DMAC_CHINTFLAG_MASK;
-    channel->CHCTRLA.bit.ENABLE = true;
-#endif
-
-    target_enable_irq();
-}
-
-void SAMDDMAC::configureChannel(int channel_number, uint8_t trig_src, uint8_t beat_size,
-                                  volatile void *src_addr, volatile void *dst_addr)
-{
-    CODAL_ASSERT(channel_number >= 0);
-    target_disable_irq();
-
-#ifdef SAMD21
-    DMAC->CHID.bit.ID = channel_number; // Select our allocated channel
-
-    DMAC->CHCTRLA.bit.ENABLE = 0;
-    DMAC->CHCTRLA.bit.SWRST = 1;
-
-    while (DMAC->CHCTRLA.bit.SWRST)
-        ;
-
-    DMAC->SWTRIGCTRL.reg &= (uint32_t)(~(1 << channel_number));
-
-    // DMAC->CHCTRLB.bit.CMD = 0;     // No Command (yet)
-    DMAC->CHCTRLB.bit.TRIGACT = 2; // One trigger per beat transfer
-    DMAC->CHCTRLB.bit.TRIGSRC = trig_src;
-    DMAC->CHCTRLB.bit.LVL = 0;   // Low priority transfer
-    DMAC->CHCTRLB.bit.EVOE = 0;  // Disable output event on every BEAT
-    DMAC->CHCTRLB.bit.EVIE = 0;  // Disable input event
-    DMAC->CHCTRLB.bit.EVACT = 0; // Trigger DMA transfer on BEAT
-
-    DMAC->CHINTENSET.bit.TCMPL = 1; // Enable interrupt on completion.
-#else
-    DmacChannel *channel = &DMAC->Channel[channel_number];
-
-    channel->CHCTRLA.bit.ENABLE = 0;
-    channel->CHCTRLA.bit.SWRST = 1;
-
-    while (channel->CHCTRLA.bit.SWRST)
-        ;
-
-    DMAC->SWTRIGCTRL.reg &= (uint32_t)(~(1 << channel_number));
-
-    channel->CHCTRLA.bit.TRIGACT = 2; // One trigger per beat transfer
-    channel->CHCTRLA.bit.TRIGSRC = trig_src;
-    /*
-    channel->CHCTRLA.bit.LVL = 0;   // Low priority transfer
-    channel->CHCTRLA.bit.EVOE = 0;  // Disable output event on every BEAT
-    channel->CHCTRLA.bit.EVIE = 0;  // Disable input event
-    channel->CHCTRLA.bit.EVACT = 0; // Trigger DMA transfer on BEAT
-    */
-
-    channel->CHINTENSET.bit.TCMPL = 1; // Enable interrupt on completion.
-#endif
-
-    DmacDescriptor &descriptor = getDescriptor(channel_number);
-
-    descriptor.BTCTRL.reg = 0;
-
-    bool isTx = dst_addr != NULL;
-
-    descriptor.BTCTRL.bit.STEPSIZE = 0;           // Auto increment address by 1 after each beat
-    descriptor.BTCTRL.bit.STEPSEL = isTx ? 0 : 1; // increment applies to SOURCE address
-    descriptor.BTCTRL.bit.DSTINC = isTx ? 0 : 1;  // increment does not apply to destintion address
-    descriptor.BTCTRL.bit.SRCINC = isTx ? 1 : 0;  // increment does apply to source address
-    descriptor.BTCTRL.bit.BEATSIZE = beat_size;   // 16 bit wide transfer.
-    descriptor.BTCTRL.bit.BLOCKACT = 0;           // No action when transfer complete.
-    descriptor.BTCTRL.bit.EVOSEL = 3;             // Strobe events after every BEAT transfer
-
-    descriptor.BTCNT.bit.BTCNT = 0;
-    descriptor.SRCADDR.reg = (uint32_t)src_addr;
-    descriptor.DSTADDR.reg = (uint32_t)dst_addr;
-    descriptor.DESCADDR.reg = 0;
-
-    descriptor.BTCTRL.bit.VALID = 1; // Enable the descritor
-
-    target_enable_irq();
+    DMAC->CTRL.bit.DMAENABLE = 0; // Disable controller, just while we configure it.
 }
 
 /**
  * Provides the SAMD21 specific DMA descriptor for the given channel number
  * @return a valid DMA decriptor, matching a previously allocated channel.
  */
-DmacDescriptor &SAMDDMAC::getDescriptor(int channel)
+DmacDescriptor &DmaFactory::getDescriptor(int channel)
 {
     if (channel < DMA_DESCRIPTOR_COUNT)
-        return descriptors[channel + DMA_DESCRIPTOR_COUNT];
+        return DmaFactory::instance->descriptors[channel + DMA_DESCRIPTOR_COUNT];
 
-    return descriptors[0];
+    return DmaFactory::instance->descriptors[0];
 }
 
 /**
@@ -277,37 +190,41 @@ DmacDescriptor &SAMDDMAC::getDescriptor(int channel)
  * @return a valid channel descriptor in the range 1..DMA_DESCRIPTOR_COUNT, or DEVICE_NO_RESOURCES
  * otherwise.
  */
-int SAMDDMAC::allocateChannel()
+DmaInstance* DmaFactory::allocate()
 {
     for (int i = 0; i < DMA_DESCRIPTOR_COUNT; i++)
     {
-        if (!descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID)
+        if (!DmaFactory::instance->descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID)
         {
-            descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID = 1;
-            return i;
+            DmaFactory::instance->descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID = 1;
+            DmaFactory::instance->apps[i] = new DmaInstance(i);
+            return DmaFactory::instance->apps[i];
         }
     }
 
-    return DEVICE_NO_RESOURCES;
+    return NULL;
 }
 
 /**
- * Registers a component to receive low level, hardware interrupt upon DMA transfer completion
- *
- * @param channel the DMA channel that the component is interested in.
- * @param component the component that wishes to receive the interrupt.
- *
- * @return DEVICE_OK on success, or DEVICE_INVALID_PARAMETER if the channel number is invalid.
+ * free's an unused DMA channel
  */
-int SAMDDMAC::onTransferComplete(int channel, DmaComponent *component)
+void DmaFactory::free(DmaInstance* dmaInstance)
 {
-    if (channel >= DMA_DESCRIPTOR_COUNT)
-        return DEVICE_INVALID_PARAMETER;
-
-    apps[channel] = component;
-    return DEVICE_OK;
+    for (int i = 0; i < DMA_DESCRIPTOR_COUNT; i++)
+    {
+        if (DmaFactory::instance->apps[i] == dmaInstance)
+        {
+            DmaFactory::instance->descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID = 0;
+            DmaFactory::instance->apps[i] = NULL;
+            return;
+        }
+    }
 }
 
+
+
+
+// ingore for now.
 #if CONFIG_ENABLED(DEVICE_DBG)
 
 void SAMDDMAC::showDescriptor(DmacDescriptor *desc)

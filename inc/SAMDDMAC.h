@@ -36,10 +36,23 @@ DEALINGS IN THE SOFTWARE.
 namespace codal
 {
 
+enum DmaCode
+{
+    DMA_COMPLETE,
+    DMA_ERROR
+};
+
+enum DmaBeatSize
+{
+    BeatByte = 0,
+    BeatHalfWord,
+    BeatWord
+};
+
 class DmaComponent
 {
 public:
-    virtual void dmaTransferComplete();
+    virtual void dmaTransferComplete(DmaCode c);
 };
 
 static inline int sercom_trigger_src(int sercomIdx, bool tx)
@@ -47,44 +60,18 @@ static inline int sercom_trigger_src(int sercomIdx, bool tx)
     return SERCOM0_DMAC_ID_RX + sercomIdx * 2 + (tx ? 1 : 0);
 }
 
-class SAMDDMAC
+class DmaInstance
 {
-    // descriptors have to be 128 bit aligned - we allocate 16 more bytes, and set descriptors
-    // at the right offset in descriptorsBuffer
-    uint8_t descriptorsBuffer[sizeof(DmacDescriptor) * (DMA_DESCRIPTOR_COUNT * 2) +
-                              DMA_DESCRIPTOR_ALIGNMENT];
-    DmacDescriptor *descriptors;
 
-public:
-    static SAMDDMAC *instance;
+    int channel_number;
 
-    /**
-     * Constructor for an instance of a DAC,
-     */
-    SAMDDMAC();
+    public:
+    DmaComponent* cb;
+
+    DmaInstance(int channel);
 
     /**
-     * Provides the SAMD21 specific DMA descriptor for the given channel number
-     * @return a valid DMA decriptor, matching a previously allocated channel.
-     */
-    DmacDescriptor &getDescriptor(int channel);
-
-    /**
-     * Allocates an unused DMA channel, if one is available.
-     * @return a valid channel descriptor in the range 1..DMA_DESCRIPTOR_COUNT, or
-     * DEVICE_NO_RESOURCES otherwise.
-     */
-    int allocateChannel();
-
-    /**
-     * Release a previously allocated channel.
-     * @param channel the id of the channel to free.
-     * @return DEVICE_OK on success, or DEVICE_INVALID_PARAMETER if the channel is invalid.
-     */
-    int freeChannel(int channel);
-
-    /**
-     * Disables all confgures DMA activity.
+     * Disables all configures DMA activity.
      * Typically required before configuring DMA descriptors and DMA channels.
      */
     void disable();
@@ -102,11 +89,56 @@ public:
      *
      * @return DEVICE_OK on success, or DEVICE_INVALID_PARAMETER if the channel number is invalid.
      */
-    int onTransferComplete(int channel, DmaComponent *component);
+    int onTransferComplete(DmaComponent *component);
 
-    void startTransfer(int channel_number, const void *src_addr, void *dst_addr, uint32_t len);
-    void configureChannel(int channel_number, uint8_t trig_src, uint8_t beat_size,
-                          volatile void *src_addr, volatile void *dst_addr);
+    void abort();
+
+    void transfer(const void *from, void *to, uint32_t len);
+
+    void configure(uint8_t trig_src, DmaBeatSize beat_size, volatile void *src_addr, volatile void *dst_addr);
+
+    DmacDescriptor& getDescriptor();
+    void setDescriptor(DmacDescriptor* d);
+
+    ~DmaInstance();
+};
+
+class DmaFactory
+{
+    // descriptors have to be 128 bit aligned - we allocate 16 more bytes, and set descriptors
+    // at the right offset in descriptorsBuffer
+    uint8_t descriptorsBuffer[sizeof(DmacDescriptor) * (DMA_DESCRIPTOR_COUNT * 2) +
+                              DMA_DESCRIPTOR_ALIGNMENT];
+    DmacDescriptor *descriptors;
+
+    public:
+    static DmaFactory* instance;
+    static DmaInstance* apps[DMA_DESCRIPTOR_COUNT];
+
+    DmaFactory();
+
+    /**
+     * Disables all confgures DMA activity.
+     * Typically required before configuring DMA descriptors and DMA channels.
+     */
+    void disable();
+
+    /**
+     * Enables all confgures DMA activity
+     */
+    void enable();
+
+    DmaInstance* allocate();
+
+    void setDescriptor(int channel, DmacDescriptor*);
+
+    /**
+     * Provides the SAMD21 specific DMA descriptor for the given channel number
+     * @return a valid DMA decriptor, matching a previously allocated channel.
+     */
+    DmacDescriptor& getDescriptor(int channel);
+
+    void free(DmaInstance*);
 
 #if CONFIG_ENABLED(DEVICE_DBG)
     void showDescriptor(DmacDescriptor *desc);
