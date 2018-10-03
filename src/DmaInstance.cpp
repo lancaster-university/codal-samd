@@ -53,7 +53,9 @@ void DmaInstance::enable()
 void DmaInstance::abort()
 {
     disable();
-    onTransferComplete(DMA_ERROR);
+
+    if (this->cb)
+        this->cb->dmaTransferComplete(DMA_ERROR);
 }
 
 /**
@@ -67,6 +69,7 @@ void DmaInstance::abort()
 int DmaInstance::onTransferComplete(DmaComponent *component)
 {
     cb = component;
+    return DEVICE_OK;
 }
 
 DmacDescriptor& DmaInstance::getDescriptor()
