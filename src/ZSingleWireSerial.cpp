@@ -56,10 +56,16 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p, Sercom* instance, int instance_numb
     _usart_async_init(&USART_INSTANCE, instance);
 
     DmaFactory factory;
-    usart_dma = factory.allocate();
-    CODAL_ASSERT(usart_dma != NULL);
+    usart_tx_dma = factory.allocate();
+    usart_rx_dma = factory.allocate();
+    CODAL_ASSERT(usart_tx_dma != NULL);
+    CODAL_ASSERT(usart_rx_dma != NULL);
 
-    usart_dma->onTransferComplete(this);
+    usart_tx_dma->onTransferComplete(this);
+    usart_rx_dma->onTransferComplete(this);
+
+    usart_tx_dma->configure(sercom_trigger_src(this->instance_number, true), BeatByte, NULL, (volatile void*)&CURRENT_USART->USART.DATA.reg);
+    usart_rx_dma->configure(sercom_trigger_src(this->instance_number, false), BeatByte, (volatile void*)CURRENT_USART->USART.DATA.reg, NULL);
 
     setBaud(115200);
 }
@@ -220,8 +226,7 @@ int ZSingleWireSerial::sendDMA(uint8_t* data, int len)
     if (!(status & RX_CONFIGURED))
         setMode(SingleWireTx);
 
-    usart_dma->configure(sercom_trigger_src(this->instance_number, true), BeatByte, NULL, (volatile void*)&CURRENT_USART->USART.DATA.reg);
-    usart_dma->transfer((const void*)data, NULL, len);
+    usart_tx_dma->transfer((const void*)data, NULL, len);
     return DEVICE_OK;
 }
 
@@ -230,8 +235,7 @@ int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
     if (!(status & RX_CONFIGURED))
         setMode(SingleWireRx);
 
-    usart_dma->configure(sercom_trigger_src(this->instance_number, false), BeatByte, (volatile void*)CURRENT_USART->USART.DATA.reg, NULL);
-    usart_dma->transfer(NULL, data, len);
+    usart_tx_dma->transfer(NULL, data, len);
 
     return DEVICE_OK;
 }
@@ -241,7 +245,8 @@ int ZSingleWireSerial::abortDMA()
     if (!(status & (RX_CONFIGURED | TX_CONFIGURED)))
         return DEVICE_INVALID_PARAMETER;
 
-    usart_dma->abort();
+    usart_tx_dma->abort();
+    usart_rx_dma->abort();
 
     // abort dma transfer
     return DEVICE_OK;

@@ -22,7 +22,8 @@ namespace codal
     {
         uint32_t baud;
         struct ::_usart_async_device USART_INSTANCE;
-        DmaInstance* usart_dma;
+        DmaInstance* usart_tx_dma;
+        DmaInstance* usart_rx_dma;
         uint32_t pinmux;
         uint8_t instance_number;
         uint8_t pad;
