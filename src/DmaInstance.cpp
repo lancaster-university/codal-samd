@@ -22,7 +22,13 @@ DmaInstance::DmaInstance(int channel)
  */
 void DmaInstance::disable()
 {
-    DmaFactory::instance->disable();
+#ifdef SAMD21
+    DMAC->CHID.bit.ID = channel_number; // Select our allocated channel
+    DMAC->CHCTRLA.bit.ENABLE = 0;
+#else
+    DmacChannel *channel = &DMAC->Channel[channel_number];
+    channel->CHCTRLA.bit.ENABLE = 0;
+#endif
 }
 
 /**
@@ -30,7 +36,18 @@ void DmaInstance::disable()
  */
 void DmaInstance::enable()
 {
-    DmaFactory::instance->enable();
+#ifdef SAMD21
+    /** Select the DMA channel and clear software trigger */
+    DMAC->CHID.bit.ID = channel;
+    // Clear any previous interrupts.
+    DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_MASK;
+    DMAC->CHCTRLA.bit.ENABLE = true;
+#else
+    DmacChannel *channel = &DMAC->Channel[channel_number];
+    // Clear any previous interrupts.
+    channel->CHINTFLAG.reg = DMAC_CHINTFLAG_MASK;
+    channel->CHCTRLA.bit.ENABLE = true;
+#endif
 }
 
 void DmaInstance::abort()
@@ -73,18 +90,7 @@ void DmaInstance::transfer(const void *src_addr, void *dst_addr, uint32_t len)
     if (dst_addr)
         descriptor.DSTADDR.reg = (uint32_t)dst_addr + len;
 
-#ifdef SAMD21
-    /** Select the DMA channel and clear software trigger */
-    DMAC->CHID.bit.ID = channel;
-    // Clear any previous interrupts.
-    DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_MASK;
-    DMAC->CHCTRLA.bit.ENABLE = true;
-#else
-    DmacChannel *channel = &DMAC->Channel[channel_number];
-    // Clear any previous interrupts.
-    channel->CHINTFLAG.reg = DMAC_CHINTFLAG_MASK;
-    channel->CHCTRLA.bit.ENABLE = true;
-#endif
+    enable();
 
     target_enable_irq();
 }
@@ -100,8 +106,7 @@ void DmaInstance::configure(uint8_t trig_src, DmaBeatSize beat_size, volatile vo
     DMAC->CHCTRLA.bit.ENABLE = 0;
     DMAC->CHCTRLA.bit.SWRST = 1;
 
-    while (DMAC->CHCTRLA.bit.SWRST)
-        ;
+    while (DMAC->CHCTRLA.bit.SWRST);
 
     DMAC->SWTRIGCTRL.reg &= (uint32_t)(~(1 << channel_number));
 

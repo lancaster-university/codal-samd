@@ -71,13 +71,13 @@ class DmaInstance
     DmaInstance(int channel);
 
     /**
-     * Disables all configures DMA activity.
+     * Disables this DMA instance.
      * Typically required before configuring DMA descriptors and DMA channels.
      */
     void disable();
 
     /**
-     * Enables all confgures DMA activity
+     * enables this DMA instance
      */
     void enable();
 
