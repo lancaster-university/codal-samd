@@ -30,45 +30,25 @@ using namespace codal;
 struct _usart_async_device USART_INSTANCE;
 
 extern void set_gpio(int);
-void ZSingleWireSerial::dmaTransferComplete()
+void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
 {
-    set_gpio(1);
-}
+    uint16_t mode = 0;
 
-void ZSingleWireSerial::_complete(uint32_t instance, uint32_t mode)
-{
-    // for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
-    // {
-    //     if (instances[i] && (uint32_t)instances[i]->uart.Instance == instance)
-    //     {
-    //         if (mode == SWS_EVT_ERROR)
-    //         {
-    //             uint8_t err = HAL_UART_GetError(&instances[i]->uart);
-    //             codal_dmesg("ERROR %d", HAL_UART_GetError(&instances[i]->uart));
-    //             if (err == HAL_UART_ERROR_FE)
-    //             {
-    //                 // a uart error disable any previously configured DMA transfers, we will always get a framing error...
-    //                 // quietly restart...
-    //                 HAL_UART_Receive_DMA(&instances[i]->uart, instances[i]->buf, instances[i]->bufLen);
-    //                 return;
-    //             }
-    //             else
-    //                 HAL_UART_Abort(&instances[i]->uart);
-    //         }
+    if (errCode == DMA_COMPLETE)
+    {
+        if (status & TX_CONFIGURED)
+            mode = SWS_EVT_DATA_SENT;
 
-    //         if (mode == 0)
-    //             HAL_UART_IRQHandler(&instances[i]->uart);
-    //         else
-    //         {
-    //             Event evt(instances[i]->id, mode, CREATE_ONLY);
+        if (status & RX_CONFIGURED)
+            mode = SWS_EVT_DATA_RECEIVED;
+    }
+    else
+        mode = SWS_EVT_ERROR;
 
-    //             if (instances[i]->cb)
-    //                 instances[i]->cb->fire(evt);
-    //         }
+    Event evt(this->id, mode, CREATE_ONLY);
 
-    //         break;
-    //     }
-    // }
+    if (this->cb)
+        this->cb->fire(evt);
 }
 
 void ZSingleWireSerial::configureRxInterrupt(int enable)

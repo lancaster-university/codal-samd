@@ -29,11 +29,6 @@ namespace codal
 
         public:
 
-        static void _complete(uint32_t instance, uint32_t mode);
-
-        JDPkt* currentBuffer;
-        uint32_t currentBufferIndex;
-
         ZSingleWireSerial(Pin& p);
 
         virtual int putc(char c);
@@ -53,7 +48,7 @@ namespace codal
 
         virtual int sendBreak();
 
-        void dmaTransferComplete();
+        void dmaTransferComplete(DmaCode c);
     };
 }
 
