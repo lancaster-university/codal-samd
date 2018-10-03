@@ -30,7 +30,7 @@ void DmaInstance::disable()
  */
 void DmaInstance::enable()
 {
-    DmaFactory::instance->disable();
+    DmaFactory::instance->enable();
 }
 
 void DmaInstance::abort()
