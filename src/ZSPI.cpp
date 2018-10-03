@@ -47,7 +47,7 @@ namespace codal
 
 #define ZERO(f) memset(&f, 0, sizeof(f))
 
-void ZSPI::dmaTransferComplete()
+void ZSPI::dmaTransferComplete(DmaCode)
 {
     LOG("SPI complete D=%p", doneHandler);
 
@@ -158,35 +158,33 @@ void ZSPI::init()
 
             if (miso)
                 miso->_setMux(MUX(miso_si), true);
-            
+
             break;
         }
 
         if (!sercom)
             target_panic(903);
-        
-        auto dmac = *SAMDDMAC::instance;
+
+        DmaFactory factory;
 
         if (miso)
         {
-            dmaRxCh = dmac.allocateChannel();
-            dmac.configureChannel(dmaRxCh, sercom_trigger_src(sercomIdx, false), 0,
-                                  &sercom->SPI.DATA.reg, NULL);
+            dmaRxCh = factory.allocate();
+            dmaRxCh->configure(sercom_trigger_src(sercomIdx, false), BeatByte, &sercom->SPI.DATA.reg, NULL);
         }
         else
-            dmaRxCh = -1;
+            dmaRxCh = NULL;
 
         if (mosi)
         {
-            dmaTxCh = dmac.allocateChannel();
-            dmac.configureChannel(dmaTxCh, sercom_trigger_src(sercomIdx, true), 0, NULL,
-                                  &sercom->SPI.DATA.reg);
-            dmac.onTransferComplete(dmaTxCh, this);
+            dmaTxCh = factory.allocate();
+            dmaTxCh->configure(sercom_trigger_src(sercomIdx, true), BeatByte, NULL, &sercom->SPI.DATA.reg);
+            dmaTxCh->onTransferComplete(this);
         }
         else
         {
             CODAL_ASSERT(0);
-            dmaTxCh = -1;
+            dmaTxCh = NULL;
         }
     }
 
@@ -284,8 +282,9 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
     CODAL_ASSERT(rxSize == 0 || txSize == rxSize);
 
     if (rxSize)
-        SAMDDMAC::instance->startTransfer(dmaRxCh, NULL, rxBuffer, rxSize);
-    SAMDDMAC::instance->startTransfer(dmaTxCh, txBuffer, NULL, txSize);
+        dmaRxCh->transfer(NULL, rxBuffer, rxSize);
+
+    dmaTxCh->transfer(txBuffer, NULL, txSize);
 
     return 0;
 }
