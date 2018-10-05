@@ -115,10 +115,10 @@ void DmaComponent::dmaTransferComplete(DmaCode) {}
 
 DmaFactory::DmaFactory()
 {
-    if (instance == NULL)
-        DmaFactory::instance = this;
-    else
+    if (instance)
         return;
+
+    DmaFactory::instance = this;
 
     uint32_t ptr = (uint32_t)descriptorsBuffer;
     while (ptr & (DMA_DESCRIPTOR_ALIGNMENT - 1))

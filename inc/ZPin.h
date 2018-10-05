@@ -30,6 +30,7 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalConfig.h"
 #include "Button.h"
 #include "pwmout_api.h"
+#include "SAMDEIC.h"
 
 #ifndef DEVICE_DEFAULT_PWM_PERIOD
 #define DEVICE_DEFAULT_PWM_PERIOD 20000
@@ -45,15 +46,15 @@ namespace codal
 
 struct ZEventConfig;
 
-class ZPin : public codal::Pin
+class ZPin : public Pin, public EICInterface
 {
 protected:
     union {
         pwmout_t *pwmCfg;
         ZEventConfig *evCfg;
         Button *btn;
+        EICChannel* chan;
     };
-
     int setPWM(uint32_t value, uint32_t period);
 
     /**
@@ -73,7 +74,7 @@ protected:
      *
      * @return DEVICE_OK on success
      */
-    //virtual int enableRiseFallEvents(int eventType);
+    virtual int enableRiseFallEvents(int eventType);
 
     /**
      * If this pin is in a mode where the pin is generating events, it will destruct
@@ -81,7 +82,7 @@ protected:
      *
      * @return DEVICE_OK on success.
      */
-    //virtual int disableEvents();
+    virtual int disableEvents();
 
 public:
     void disconnect();
@@ -344,7 +345,9 @@ public:
      * was 85us, around 5khz. If more precision is required, please use the InterruptIn class
      * supplied by ARM mbed.
      */
-    //virtual int eventOn(int eventType);
+    virtual int eventOn(int eventType);
+
+    virtual void pinEventDetected();
 
     void _setMux(int mux, bool isInput = false);
 };

@@ -35,6 +35,9 @@ DEALINGS IN THE SOFTWARE.
 #include "codal-core/inc/types/Event.h"
 #include "pinmap.h"
 #include "hal_gpio.h"
+#include "CodalDmesg.h"
+
+extern void string_dbg_const(const char *str);
 
 #define IO_STATUS_CAN_READ                                                                         \
     (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
@@ -78,7 +81,7 @@ inline gpio_pull_mode map(codal::PullMode pinMode)
  * ZPin P0(DEVICE_ID_IO_P0, DEVICE_PIN_P0, PIN_CAPABILITY_ALL);
  * @endcode
  */
-ZPin::ZPin(int id, PinNumber name, PinCapability capability) : codal::Pin(id, name, capability)
+ZPin::ZPin(int id, PinNumber name, PinCapability capability) : codal::Pin(id, name, capability), EICInterface()
 {
     this->pullMode = DEVICE_DEFAULT_PULLMODE;
 
@@ -87,6 +90,9 @@ ZPin::ZPin(int id, PinNumber name, PinCapability capability) : codal::Pin(id, na
     this->status = 0x00;
 
     this->pwmCfg = NULL;
+    this->evCfg = NULL;
+    this->btn = NULL;
+    this->chan = NULL;
 }
 
 void ZPin::disconnect()
@@ -100,8 +106,8 @@ void ZPin::disconnect()
 
     if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE))
     {
-        // TODO
-        // EXTI->IMR &= ~GPIO_PIN();
+        if (this->chan)
+            delete this->chan;
         if (this->evCfg)
             delete this->evCfg;
         this->evCfg = NULL;
@@ -211,9 +217,9 @@ int ZPin::setPWM(uint32_t value, uint32_t period)
     // sanitise the level value
     if (value > period)
         value = period;
-    
+
     int r;
-    
+
     // Move into an analogue output state if necessary
     if (!(status & IO_STATUS_ANALOG_OUT))
     {
@@ -515,50 +521,26 @@ void ZPin::pulseWidthEvent(int eventValue)
     this->evCfg->prevPulse = now;
 }
 
-#if 0
-void ZPin::eventCallback()
+void ZPin::pinEventDetected()
 {
-    bool isRise = HAL_GPIO_ReadPin(GPIO_PORT(), GPIO_PIN());
+    bool isRise = gpio_get_pin_level(this->name);
+
+    // as far as I can tell there is no latch for the EIC (kinda sucky)
+    // if events are enabled for both rise and fall, we determine what event occurred, and enable the opposite interrupt
+    // from then on interrupt configuration is swapped.
+    if (chan->getConfiguration() == EICEventsRise)
+        isRise = true;
+
+    if (chan->getConfiguration() == EICEventsFall)
+        isRise = false;
+
+    chan->configure(isRise ? EICEventsFall : EICEventsRise);
 
     if (status & IO_STATUS_EVENT_PULSE_ON_EDGE)
         pulseWidthEvent(isRise ? DEVICE_PIN_EVT_PULSE_LO : DEVICE_PIN_EVT_PULSE_HI);
 
     if (status & IO_STATUS_EVENT_ON_EDGE)
         Event(id, isRise ? DEVICE_PIN_EVT_RISE : DEVICE_PIN_EVT_FALL);
-}
-
-static void irq_handler()
-{
-    int pr = EXTI->PR;
-    EXTI->PR = pr; // clear all pending bits
-
-    for (int i = 0; i < 16; ++i)
-    {
-        if ((pr & (1 << i)) && eventPin[i])
-            eventPin[i]->eventCallback();
-    }
-}
-
-#define DEF(nm)                                                                                    \
-    extern "C" void nm() { irq_handler(); }
-
-DEF(EXTI0_IRQHandler)
-DEF(EXTI1_IRQHandler)
-DEF(EXTI2_IRQHandler)
-DEF(EXTI3_IRQHandler)
-DEF(EXTI4_IRQHandler)
-DEF(EXTI9_5_IRQHandler)
-DEF(EXTI15_10_IRQHandler)
-
-static void enable_irqs()
-{
-    NVIC_EnableIRQ(EXTI0_IRQn);
-    NVIC_EnableIRQ(EXTI1_IRQn);
-    NVIC_EnableIRQ(EXTI2_IRQn);
-    NVIC_EnableIRQ(EXTI3_IRQn);
-    NVIC_EnableIRQ(EXTI4_IRQn);
-    NVIC_EnableIRQ(EXTI9_5_IRQn);
-    NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
 /**
@@ -578,29 +560,22 @@ int ZPin::enableRiseFallEvents(int eventType)
         if (!(status & IO_STATUS_DIGITAL_IN))
             getDigitalValue();
 
-        enable_irqs();
+        const mcu_pin_obj_t* pin = samd_peripherals_get_pin(name);
+        CODAL_ASSERT(pin != NULL);
+        CODAL_ASSERT(pin->has_extint);
 
-        int pin = (int)name & PINMASK;
+        EICFactory eic;
+        this->chan = eic.getInstance(pin->extint_channel);
+        CODAL_ASSERT(chan != NULL);
 
-        eventPin[pin] = this;
+        gpio_set_pin_pull_mode(name, map(pullMode));
+        gpio_set_pin_direction(name, GPIO_DIRECTION_IN);
 
-        volatile uint32_t *ptr = &SYSCFG->EXTICR[pin >> 2];
-        int shift = (pin & 3) * 4;
-        int port = (int)name >> 4;
+        // pinmux a is zero (true for both samd21 and 51)
+        gpio_set_pin_function(name, PINMUX(name, 0));
 
-        // take over line for ourselves
-        *ptr = (*ptr & ~(0xf << shift)) | (port << shift);
-
-        EXTI->EMR &= ~GPIO_PIN();
-        EXTI->IMR |= GPIO_PIN();
-        EXTI->RTSR |= GPIO_PIN();
-        EXTI->FTSR |= GPIO_PIN();
-
-        if (this->evCfg == NULL)
-            this->evCfg = new ZEventConfig;
-
-        auto cfg = this->evCfg;
-        cfg->prevPulse = 0;
+        this->chan->setChangeCallback(this);
+        this->chan->enable(EICEventsRiseFall);
     }
 
     status &= ~(IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE);
@@ -688,6 +663,5 @@ int ZPin::eventOn(int eventType)
 
     return DEVICE_OK;
 }
-#endif
 
 } // namespace codal

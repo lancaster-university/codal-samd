@@ -48,15 +48,16 @@ enum EICEventType
 class EICInterface
 {
     public:
-    virtual void onEICEvent(EICEventType) = 0;
+    virtual void pinEventDetected();
 };
 
 class EICChannel
 {
     int channel_number; // the channel
-    EICInterface* cb;
+    EICEventType configuration;
 
     public:
+    EICInterface* cb;
 
     /**
      * Create an EIC channel given a channel number
@@ -73,6 +74,11 @@ class EICChannel
     void configure(EICEventType t);
 
     /**
+     * Retrieves mode of this channel.
+     **/
+    EICEventType getConfiguration();
+
+    /**
      * Disables this channel
      **/
     void disable();
@@ -87,14 +93,14 @@ class EICChannel
     /**
      * Called by the interrupt handler when an interrupt is received.
      **/
-    void trigger(uint8_t type);
+    void trigger();
 
     /**
      * Set the event handling instance.
      *
      * @param interface the EICinterface to invoke.
      **/
-    void onEICEvent(EICInterface* interface);
+    void setChangeCallback(EICInterface* interface);
 
     /**
      * Destructor... implicitly calls EICFactory->free
@@ -106,7 +112,7 @@ class EICFactory
 {
     public:
 
-    EICChannel* instances[EIC_CHANNEL_COUNT]; // EIC channel instances.
+    static EICChannel* instances[EIC_CHANNEL_COUNT]; // EIC channel instances.
     static EICFactory* instance;    // singleton reference
 
     /**
@@ -140,7 +146,7 @@ class EICFactory
      *
      * @param instance the instance to free.
      **/
-    void free(EICChannel*);
+    void free(int channel);
 };
 
 } // namespace codal
