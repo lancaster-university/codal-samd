@@ -568,9 +568,6 @@ int ZPin::enableRiseFallEvents(int eventType)
         this->chan = eic.getInstance(pin->extint_channel);
         CODAL_ASSERT(chan != NULL);
 
-        gpio_set_pin_pull_mode(name, map(pullMode));
-        gpio_set_pin_direction(name, GPIO_DIRECTION_IN);
-
         // pinmux a is zero (true for both samd21 and 51)
         gpio_set_pin_function(name, PINMUX(name, 0));
 
