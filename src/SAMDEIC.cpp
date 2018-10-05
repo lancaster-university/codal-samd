@@ -27,7 +27,7 @@ EICChannel::EICChannel(int channel)
 {
     DMESG("CHAN: %d ADDR: %x", channel, this);
     this->cb = NULL;
-    turn_on_cpu_interrupt(channel);
+    // turn_on_cpu_interrupt(channel);
     this->channel_number = channel;
 }
 
@@ -66,7 +66,7 @@ void EICChannel::setChangeCallback(EICInterface* interface)
 void EICChannel::enable(EICEventType t)
 {
     configure(t);
-    turn_on_eic_channel(this->channel_number, t);
+    turn_on_eic_channel(this->channel_number, t, EIC_HANDLER_APP);
 }
 
 EICChannel::~EICChannel()
