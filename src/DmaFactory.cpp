@@ -35,7 +35,7 @@ DEALINGS IN THE SOFTWARE.
 
 using namespace codal;
 
-DmaFactory* DmaFactory::instance = NULL;
+DmaControllerInstance* DmaFactory::instance = NULL;
 DmaInstance* DmaFactory::apps[DMA_DESCRIPTOR_COUNT];
 
 #ifdef SAMD21
@@ -67,16 +67,16 @@ static void dmac_irq_handler()
     if (hri_dmac_get_CHINTFLAG_TERR_bit(DMAC, channel))
     {
         hri_dmac_clear_CHINTFLAG_TERR_bit(DMAC, channel);
-        if (DmaFactory::instance->apps[channel] != NULL && DmaFactory::instance->apps[channel]->cb)
-            DmaFactory::instance->apps[channel]->trigger(DMA_ERROR);
+        if (DmaFactory::apps[channel] != NULL && DmaFactory::apps[channel]->cb)
+            DmaFactory::apps[channel]->trigger(DMA_ERROR);
         // tmp_resource->dma_cb.error(tmp_resource);
     }
     else if (hri_dmac_get_CHINTFLAG_TCMPL_bit(DMAC, channel))
     {
         hri_dmac_clear_CHINTFLAG_TCMPL_bit(DMAC, channel);
 
-        if (DmaFactory::instance->apps[channel] != NULL && DmaFactory::instance->apps[channel]->cb)
-            DmaFactory::instance->apps[channel]->trigger(DMA_COMPLETE);
+        if (DmaFactory::apps[channel] != NULL && DmaFactory::apps[channel]->cb)
+            DmaFactory::apps[channel]->trigger(DMA_COMPLETE);
     }
 
     hri_dmac_clear_CHINTFLAG_reg(DMAC, channel, 0);
@@ -113,20 +113,14 @@ extern "C" void DMAC_4_Handler(void)
  */
 void DmaComponent::dmaTransferComplete(DmaCode) {}
 
-DmaFactory::DmaFactory()
+DmaControllerInstance::DmaControllerInstance()
 {
-    if (instance)
-        return;
-
-    DmaFactory::instance = this;
-
     uint32_t ptr = (uint32_t)descriptorsBuffer;
     while (ptr & (DMA_DESCRIPTOR_ALIGNMENT - 1))
         ptr++;
     descriptors = (DmacDescriptor *)ptr;
 
     memclr(descriptors, sizeof(DmacDescriptor) * (DMA_DESCRIPTOR_COUNT * 2));
-    memclr(apps, sizeof(DmaInstance*) * DMA_DESCRIPTOR_COUNT);
 
     // Set up to DMA Controller
     this->disable();
@@ -164,14 +158,43 @@ DmaFactory::DmaFactory()
 #endif
 }
 
-void DmaFactory::enable()
+void DmaControllerInstance::enable()
 {
     DMAC->CTRL.bit.DMAENABLE = 1; // Enable controller.
 }
 
-void DmaFactory::disable()
+void DmaControllerInstance::disable()
 {
     DMAC->CTRL.bit.DMAENABLE = 0; // Disable controller, just while we configure it.
+}
+
+DmacDescriptor &DmaControllerInstance::getDescriptor(int channel)
+{
+    if (channel < DMA_DESCRIPTOR_COUNT)
+        return this->descriptors[channel + DMA_DESCRIPTOR_COUNT];
+
+    return this->descriptors[0];
+}
+
+void DmaFactory::instantiate()
+{
+    if (instance)
+        return;
+
+    memclr(apps, sizeof(DmaInstance*) * DMA_DESCRIPTOR_COUNT);
+    instance = new DmaControllerInstance();
+}
+
+void DmaFactory::enable()
+{
+    instantiate();
+    instance->enable();
+}
+
+void DmaFactory::disable()
+{
+    instantiate();
+    instance->disable();
 }
 
 /**
@@ -180,10 +203,8 @@ void DmaFactory::disable()
  */
 DmacDescriptor &DmaFactory::getDescriptor(int channel)
 {
-    if (channel < DMA_DESCRIPTOR_COUNT)
-        return DmaFactory::instance->descriptors[channel + DMA_DESCRIPTOR_COUNT];
-
-    return DmaFactory::instance->descriptors[0];
+    instantiate();
+    return instance->getDescriptor(channel);
 }
 
 /**
@@ -193,13 +214,15 @@ DmacDescriptor &DmaFactory::getDescriptor(int channel)
  */
 DmaInstance* DmaFactory::allocate()
 {
+    instantiate();
+
     for (int i = 0; i < DMA_DESCRIPTOR_COUNT; i++)
     {
-        if (!DmaFactory::instance->descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID)
+        if (!instance->descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID)
         {
-            DmaFactory::instance->descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID = 1;
-            DmaFactory::instance->apps[i] = new DmaInstance(i);
-            return DmaFactory::instance->apps[i];
+            instance->descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID = 1;
+            DmaFactory::apps[i] = new DmaInstance(i);
+            return DmaFactory::apps[i];
         }
     }
 
@@ -211,12 +234,14 @@ DmaInstance* DmaFactory::allocate()
  */
 void DmaFactory::free(DmaInstance* dmaInstance)
 {
+    instantiate();
+
     for (int i = 0; i < DMA_DESCRIPTOR_COUNT; i++)
     {
-        if (DmaFactory::instance->apps[i] == dmaInstance)
+        if (DmaFactory::apps[i] == dmaInstance)
         {
-            DmaFactory::instance->descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID = 0;
-            DmaFactory::instance->apps[i] = NULL;
+            instance->descriptors[i + DMA_DESCRIPTOR_COUNT].BTCTRL.bit.VALID = 0;
+            DmaFactory::apps[i] = NULL;
             return;
         }
     }

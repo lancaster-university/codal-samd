@@ -53,8 +53,9 @@ protected:
         pwmout_t *pwmCfg;
         ZEventConfig *evCfg;
         Button *btn;
-        EICChannel* chan;
     };
+
+    EICChannel* chan;
     int setPWM(uint32_t value, uint32_t period);
 
     /**

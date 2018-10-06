@@ -181,5 +181,5 @@ void DmaInstance::configure(uint8_t trig_src, DmaBeatSize beat_size, volatile vo
 
 DmaInstance::~DmaInstance()
 {
-    DmaFactory::instance->free(this);
+    DmaFactory::free(this);
 }

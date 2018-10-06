@@ -105,7 +105,7 @@ class DmaInstance
     ~DmaInstance();
 };
 
-class DmaFactory
+class DmaControllerInstance
 {
     // descriptors have to be 128 bit aligned - we allocate 16 more bytes, and set descriptors
     // at the right offset in descriptorsBuffer
@@ -113,24 +113,14 @@ class DmaFactory
                               DMA_DESCRIPTOR_ALIGNMENT];
     DmacDescriptor *descriptors;
 
+    protected:
+    DmaControllerInstance();
+
     public:
-    static DmaFactory* instance;
-    static DmaInstance* apps[DMA_DESCRIPTOR_COUNT];
 
-    DmaFactory();
-
-    /**
-     * Disables all confgures DMA activity.
-     * Typically required before configuring DMA descriptors and DMA channels.
-     */
-    void disable();
-
-    /**
-     * Enables all confgures DMA activity
-     */
     void enable();
 
-    DmaInstance* allocate();
+    void disable();
 
     void setDescriptor(int channel, DmacDescriptor*);
 
@@ -140,12 +130,39 @@ class DmaFactory
      */
     DmacDescriptor& getDescriptor(int channel);
 
-    void free(DmaInstance*);
+    friend class DmaFactory;
+};
 
-#if CONFIG_ENABLED(DEVICE_DBG)
-    void showDescriptor(DmacDescriptor *desc);
-    void showRegisters();
-#endif
+class DmaFactory
+{
+    static void instantiate();
+
+    public:
+    static DmaControllerInstance* instance;
+    static DmaInstance* apps[DMA_DESCRIPTOR_COUNT];
+
+    /**
+     * Disables all confgures DMA activity.
+     * Typically required before configuring DMA descriptors and DMA channels.
+     */
+    static void disable();
+
+    /**
+     * Enables all confgures DMA activity
+     */
+    static void enable();
+
+    static DmaInstance* allocate();
+
+    static void setDescriptor(int channel, DmacDescriptor*);
+
+    /**
+     * Provides the SAMD21 specific DMA descriptor for the given channel number
+     * @return a valid DMA decriptor, matching a previously allocated channel.
+     */
+    static DmacDescriptor& getDescriptor(int channel);
+
+    static void free(DmaInstance*);
 };
 
 } // namespace codal

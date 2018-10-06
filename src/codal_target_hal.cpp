@@ -18,6 +18,13 @@ void target_wait_for_event()
     __WFE();
 }
 
+// 128 bits starting from here...
+uint32_t* const serial_start = (uint32_t *)0x008061FC;
+uint32_t target_get_serial()
+{
+    return *serial_start;
+}
+
 void target_wait(uint32_t milliseconds)
 {
     target_wait_us(milliseconds * 1000);
