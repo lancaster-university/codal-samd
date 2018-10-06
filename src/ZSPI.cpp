@@ -39,8 +39,8 @@ extern "C" {
 
 #include "parts.h"
 
-#define LOG DMESG
-//#define LOG(...) ((void)0)
+//#define LOG DMESG
+#define LOG(...) ((void)0)
 
 namespace codal
 {
