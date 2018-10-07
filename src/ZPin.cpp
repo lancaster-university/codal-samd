@@ -37,8 +37,6 @@ DEALINGS IN THE SOFTWARE.
 #include "hal_gpio.h"
 #include "CodalDmesg.h"
 
-extern void string_dbg_const(const char *str);
-
 #define IO_STATUS_CAN_READ                                                                         \
     (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
 
@@ -107,7 +105,9 @@ void ZPin::disconnect()
     if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE))
     {
         if (this->chan)
-            delete this->chan;
+            delete this->chan; // this->chan->disable(); may be better if heap delete takes too long...
+        this->chan = NULL;
+
         if (this->evCfg)
             delete this->evCfg;
         this->evCfg = NULL;
@@ -540,7 +540,7 @@ void ZPin::pinEventDetected()
         pulseWidthEvent(isRise ? DEVICE_PIN_EVT_PULSE_LO : DEVICE_PIN_EVT_PULSE_HI);
 
     if (status & IO_STATUS_EVENT_ON_EDGE)
-        Event(id, isRise ? DEVICE_PIN_EVT_RISE : DEVICE_PIN_EVT_FALL);
+        Event(id, isRise ? DEVICE_PIN_EVT_RISE : DEVICE_PIN_EVT_FALL, 0, CREATE_AND_FIRE);
 }
 
 /**
@@ -564,9 +564,15 @@ int ZPin::enableRiseFallEvents(int eventType)
         CODAL_ASSERT(pin != NULL);
         CODAL_ASSERT(pin->has_extint);
 
-        EICFactory eic;
-        this->chan = eic.getInstance(pin->extint_channel);
-        CODAL_ASSERT(chan != NULL);
+        if (!evCfg)
+            evCfg = new ZEventConfig;
+
+        if (!chan)
+        {
+            EICFactory eic;
+            this->chan = eic.getInstance(pin->extint_channel);
+            CODAL_ASSERT(chan != NULL);
+        }
 
         // pinmux a is zero (true for both samd21 and 51)
         gpio_set_pin_function(name, PINMUX(name, 0));
