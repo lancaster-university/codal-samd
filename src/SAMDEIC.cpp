@@ -25,16 +25,13 @@ static void eic_handler(uint8_t channel)
 
 EICChannel::EICChannel(int channel)
 {
-    DMESG("CHAN: %d ADDR: %x", channel, this);
     this->cb = NULL;
-    // turn_on_cpu_interrupt(channel);
+    turn_on_cpu_interrupt(channel);
     this->channel_number = channel;
 }
 
 void EICChannel::trigger()
 {
-    DMESG("TRIG CHAN %d", this->channel_number);
-
     if (this->cb)
         this->cb->pinEventDetected();
 }
@@ -53,7 +50,6 @@ EICEventType EICChannel::getConfiguration()
 void EICChannel::disable()
 {
     configure(EICEventsNone);
-    turn_off_eic_channel(this->channel_number);
 }
 
 void EICChannel::setChangeCallback(EICInterface* interface)
