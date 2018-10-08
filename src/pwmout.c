@@ -534,7 +534,7 @@ bool common_hal_pulseio_pwmout_get_variable_frequency(pulseio_pwmout_obj_t *self
 }
 
 #define DUTY(obj) ((obj->pulse * 0xffff) / obj->period)
-#define FREQ(obj) (1000000000 / obj->period)
+#define FREQ(obj) (1000000 / obj->period)
 
 int pwmout_init(pwmout_t *obj, uint32_t pin, uint32_t pulse, uint32_t period)
 {
