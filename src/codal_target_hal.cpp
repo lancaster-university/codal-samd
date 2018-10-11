@@ -44,7 +44,7 @@ extern "C" void assert_failed(uint8_t* file, uint32_t line)
     target_panic(920);
 }
 
-void target_panic(int statusCode)
+__attribute__((weak)) void target_panic(int statusCode)
 {
     target_disable_irq();
 
