@@ -5,21 +5,28 @@
 #include "CodalComponent.h"
 #include "CodalConfig.h"
 #include "SingleWireSerial.h"
-#include "PktSerial.h"
+#include "JACDAC.h"
 #include "pinmap.h"
 #include "MemberFunctionCallback.h"
+#include "SAMDDMAC.h"
+
+#include "hal_usart_async.h"
+extern "C"
+{
+#include "sercom.h"
+}
 
 namespace codal
 {
-
-    class ZSingleWireSerial : public DMASingleWireSerial
+    class ZSingleWireSerial : public DMASingleWireSerial, public DmaComponent
     {
-        UART_HandleTypeDef uart;
-        DMA_HandleTypeDef hdma_tx;
-        DMA_HandleTypeDef hdma_rx;
-
-        uint8_t* buf;
-        uint16_t bufLen;
+        uint32_t baud;
+        struct ::_usart_async_device USART_INSTANCE;
+        DmaInstance* usart_tx_dma;
+        DmaInstance* usart_rx_dma;
+        uint32_t pinmux;
+        uint8_t instance_number;
+        uint8_t pad;
 
         protected:
         virtual void configureRxInterrupt(int enable);
@@ -30,13 +37,21 @@ namespace codal
 
         public:
 
-        static void _complete(uint32_t instance, uint32_t mode);
-
-        PktSerialPkt* currentBuffer;
-        uint32_t currentBufferIndex;
-
-        // only works with a TX uart pin on STM.
-        ZSingleWireSerial(Pin& p);
+        /**
+         * This constructor is really ugly, but there isn't currently a nice representation of a model of the device
+         * i.e. a resource manager?
+         *
+         * @param p the pin instance to use for output
+         *
+         * @param instance the sercom instance that is compatible with p.
+         *
+         * @param instance_number the index into the sercom array (SERCOM0 == index 0)
+         *
+         * @param pinmux the pinmux settings for p, i.e. PA08 has pinmux settings PINMUX_PB08D_SERCOM4_PAD0 for sercom four
+         *
+         * @param pad the pad that the pin is routed through i.e. PA08 uses PAD0 of SERCOM4 (see data sheet).
+         **/
+        ZSingleWireSerial(Pin& p, Sercom* instance, int instance_number, uint32_t pinmux, uint8_t pad);
 
         virtual int putc(char c);
         virtual int getc();
@@ -54,6 +69,8 @@ namespace codal
         virtual int setMode(SingleWireMode sw);
 
         virtual int sendBreak();
+
+        void dmaTransferComplete(DmaCode c);
     };
 }
 
