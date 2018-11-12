@@ -5,8 +5,10 @@
 
 #include "CodalDmesg.h"
 
+#include "sam.h"
 
 // TODO get rid of division on SAMD21 - it's slow
+// TODO: make it us granularity.
 
 
 namespace codal

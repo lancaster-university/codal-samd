@@ -48,8 +48,9 @@ protected:
     Sercom *sercom;
     struct spi_m_sync_descriptor spi_desc;
 
-    uint8_t _bits, _mode;    
-    int8_t dmaTxCh, dmaRxCh;
+    uint8_t _bits, _mode;
+    DmaInstance* dmaTxCh;
+    DmaInstance* dmaRxCh;
 
     PVoidCallback doneHandler;
     void *doneHandlerArg;
@@ -61,7 +62,7 @@ protected:
     void init();
 
 public:
-    virtual void dmaTransferComplete();
+    virtual void dmaTransferComplete(DmaCode);
 
     /**
      * Initialize SPI instance with given pins.
