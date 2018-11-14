@@ -38,7 +38,7 @@ void DmaInstance::enable()
 {
 #ifdef SAMD21
     /** Select the DMA channel and clear software trigger */
-    DMAC->CHID.bit.ID = channel;
+    DMAC->CHID.bit.ID = channel_number;
     // Clear any previous interrupts.
     DMAC->CHINTFLAG.reg = DMAC_CHINTFLAG_MASK;
     DMAC->CHCTRLA.bit.ENABLE = true;

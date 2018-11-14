@@ -46,15 +46,21 @@ extern "C" void DMAC_Handler(void)
     int channel = DMAC->INTPEND.bit.ID;
     DMAC->CHID.bit.ID = channel;
 
+#ifdef SAMD51
     bool err = (DMAC->CHINTFLAG.bit.ERROR > 0) ? true : false;
+#elif SAMD21
+    bool err = (DMAC->CHINTFLAG.bit.TERR > 0) ? true : false;
+#else
+    #error CHINTFLAG check needs to be implemented
+#endif
     DMAC->CHINTFLAG.reg= DMAC_CHINTENCLR_TCMPL;
 
-    if (DmaFactory::instance->apps[channel] != NULL && DmaFactory::instance->apps[channel]->cb)
+    if (DmaFactory::apps[channel] != NULL && DmaFactory::apps[channel]->cb)
     {
         if (err)
-            DmaFactory::instance->apps[channel]->trigger(DMA_ERROR);
+            DmaFactory::apps[channel]->trigger(DMA_ERROR);
         else
-            DmaFactory::instance->apps[channel]->trigger(DMA_COMPLETE);
+            DmaFactory::apps[channel]->trigger(DMA_COMPLETE);
     }
 
     DMAC->CHID.bit.ID = oldChannel;
