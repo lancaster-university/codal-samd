@@ -42,6 +42,7 @@ LIST(APPEND TOP_LEVEL_SOURCE
     "${SP}/external_interrupts.c"
     "${SP2}/external_interrupts.c"
     "${SP2}/cache.c"
+    "${SP2}/timers.c"
     "${SP}/pins.c"
     "${SP2}/pins.c"
     "${SP}/timers.c"

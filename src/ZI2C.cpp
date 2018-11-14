@@ -17,7 +17,7 @@ using namespace codal;
 /**
  * Constructor.
  */
-ZI2C::ZI2C(codal::Pin &sda, codal::Pin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
+ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
 {
     const mcu_pin_obj_t* sda_pin = samd_peripherals_get_pin(sda.name);
     const mcu_pin_obj_t* scl_pin = samd_peripherals_get_pin(scl.name);
@@ -61,12 +61,8 @@ ZI2C::ZI2C(codal::Pin &sda, codal::Pin &scl) : codal::I2C(sda,scl), sda(sda), sc
     DMESG("SCL pad %d, idx %d, fn: %d", scl_pin->sercom[0].pad, scl_pin->sercom[0].index, scl_fun);
     DMESG("SERCOM IDX %d", sercomIdx);
 
-    gpio_set_pin_direction(sda.name, GPIO_DIRECTION_OUT);
-    gpio_set_pin_direction(scl.name, GPIO_DIRECTION_OUT);
-    gpio_set_pin_pull_mode(sda.name, GPIO_PULL_OFF);
-    gpio_set_pin_pull_mode(scl.name, GPIO_PULL_OFF);
-    gpio_set_pin_function(sda.name, PINMUX(sda.name, sda_fun));
-    gpio_set_pin_function(scl.name, PINMUX(scl.name, scl_fun));
+    sda._setMux(sda_fun);
+    scl._setMux(scl_fun);
 
     Sercom* i2c_sercom = sercom_insts[sercomIdx];
     samd_peripherals_sercom_clock_init(i2c_sercom, sercomIdx);
