@@ -130,9 +130,13 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
 
     turn_on_clocks(true, tc_index, tc_gclk);
 
+    DMESG("clock: %d %d", tc_index, tc_gclk);
+
     // Don't bother setting the period. We set it before you playback anything.
     tc_set_enable(t, false);
-    tc_reset(t);
+    // tc_reset(t);
+
+    t->COUNT16.CTRLA.bit.MODE = 0;
 #ifdef SAMD51
     t->COUNT16.WAVE.reg = TC_WAVE_WAVEGEN_MFRQ;
 #endif
@@ -140,12 +144,42 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
     t->COUNT16.CTRLA.bit.WAVEGEN = TC_CTRLA_WAVEGEN_MFRQ_Val;
 #endif
     t->COUNT16.CTRLA.bit.RUNSTDBY = 1;
+    t->COUNT16.CTRLA.bit.PRESCALER = 0;
     t->COUNT16.EVCTRL.reg = TC_EVCTRL_OVFEO;
-    //t->COUNT16.CTRLC.reg = 0x00;     // compare mode
+    // t->COUNT16.CTRLC.reg = 0x00;     // compare mode
     t->COUNT16.CTRLBCLR.bit.DIR = 1; // count up
 
     // tc_set_enable(t, true);
     // t->COUNT16.CTRLBSET.reg = TC_CTRLBSET_CMD_STOP;
+    /*
+        {
+            CTRLA = {bit = {SWRST = 0, ENABLE = 1, MODE = 0, PRESCSYNC = 0, RUNSTDBY = 1, ONDEMAND =
+       0, PRESCALER = 0, ALOCK = 0, CAPTEN0 = 0, CAPTEN1 = 0, COPEN0 = 0, COPEN1 = 0, CAPTMODE0 = 0,
+       CAPTMODE1 = 0}, vec = {CAPTEN = 0, COPEN = 0}, reg = 66}, CTRLBCLR = {bit = {DIR = 0 '\000',
+       LUPD = 0 '\000', ONESHOT = 0 '\000', CMD = 0 '\000'}, reg = 0 '\000'}, CTRLBSET = {bit = {DIR
+       = 0 '\000', LUPD = 0 '\000', ONESHOT = 0 '\000', CMD = 0 '\000'}, reg = 0 '\000'}, EVCTRL =
+       {bit = {EVACT = 0, TCINV = 0, TCEI = 0, OVFEO = 1, MCEO0 = 0, MCEO1 = 0}, vec = {MCEO = 0},
+       reg = 256}, INTENCLR = {bit = {OVF = 0 '\000', ERR = 0 '\000', MC0 = 0 '\000', MC1 = 0
+       '\000'}, vec = {MC = 0 '\000'}, reg = 0 '\000'}, INTENSET = {bit = {OVF = 0 '\000', ERR = 0
+       '\000', MC0 = 0 '\000', MC1 = 0 '\000'}, vec = {MC = 0 '\000'}, reg = 0 '\000'}, INTFLAG =
+       {bit = {OVF = 0 '\000', ERR = 0 '\000', MC0 = 0 '\000', MC1 = 1 '\001'}, vec = {MC = 2
+       '\002'}, reg = 32 ' '}, STATUS = {bit = {STOP = 0 '\000', SLAVE = 0 '\000', PERBUFV = 0
+       '\000', CCBUFV0 = 0 '\000', CCBUFV1 = 0 '\000'}, vec = {CCBUFV = 0 '\000'}, reg = 0 '\000'},
+            WAVE = {bit = {WAVEGEN = 1 '\001'}, reg = 1 '\001'},
+            DRVCTRL = {bit = {INVEN0 = 0 '\000', INVEN1 = 0 '\000'}, vec = {INVEN = 0 '\000'},
+                       reg = 0 '\000'},
+            Reserved1 = "", DBGCTRL = {bit = {DBGRUN = 0 '\000'}, reg = 0 '\000'},
+            SYNCBUSY = {bit = {SWRST = 0, ENABLE = 0, CTRLB = 0, STATUS = 0, COUNT = 0, PER = 0,
+                               CC0 = 0, CC1 = 0},
+                        vec = {CC = 0}, reg = 0},
+            COUNT = {bit = {COUNT = 0}, reg = 0}, Reserved2 = "\000\000\000\000\000",
+            CC = {{bit = {CC = 1088}, reg = 1088}, {bit = {CC = 0}, reg = 0}},
+            Reserved3 = '\000' < repeats 15 times >, CCBUF = {
+                {bit = {CCBUF = 1088}, reg = 1088},
+                {bit = {CCBUF = 0}, reg = 0}
+            }
+        }
+    */
 
     pin._setMux(MUX_B);
 
