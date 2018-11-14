@@ -2,10 +2,18 @@ project(codal-samd)
 
 include("${CODAL_UTILS_LOCATION}")
 
+string(FIND "${device.processor}" "SAMD21" pos)
+
+if (NOT "${pos}" STREQUAL "-1")
+    set(DEVICE_DIR "samd21")
+else ()
+    set(DEVICE_DIR "samd51")
+endif()
+
 # TODO allow SAMD21
-set(ASF "${CMAKE_CURRENT_SOURCE_DIR}/asf4/samd51")
+set(ASF "${CMAKE_CURRENT_SOURCE_DIR}/asf4/${DEVICE_DIR}")
 set(SP "${CMAKE_CURRENT_SOURCE_DIR}/samd-peripherals/samd")
-set(SP2 "${SP}/samd51")
+set(SP2 "${SP}/${DEVICE_DIR}")
 
 # find sources and headers
 SET(TOP_LEVEL_INCLUDE_DIRS0
@@ -31,6 +39,8 @@ RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE1 "${CMAKE_CURRENT_SOURCE_DIR}/src" "*.c")
 LIST(APPEND TOP_LEVEL_SOURCE
     "${SP}/clocks.c"
     "${SP2}/clocks.c"
+    "${SP}/external_interrupts.c"
+    "${SP2}/external_interrupts.c"
     "${SP2}/cache.c"
     "${SP}/pins.c"
     "${SP2}/pins.c"
