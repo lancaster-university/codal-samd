@@ -38,24 +38,24 @@ ZI2C::ZI2C(codal::Pin &sda, codal::Pin &scl) : codal::I2C(sda,scl), sda(sda), sc
         sda_fun = MUX_D; // d
         sercomIdx = sda_pin->sercom[1].index;
     } else
-        target_panic(865);
+        target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     if (scl_pin->sercom[0].index == sercomIdx)
     {
         if(scl_pin->sercom[0].pad != 1)
-            target_panic(866);
+            target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
-        scl_fun = MUX_C; // d
+        scl_fun = MUX_C; // c
     }
     else if (scl_pin->sercom[1].index == sercomIdx)
     {
         if(scl_pin->sercom[1].pad != 0)
-            target_panic(867);
+            target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
-        scl_fun = MUX_D; // c
+        scl_fun = MUX_D; // d
     }
     else
-        target_panic(868);
+        target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     DMESG("SDA pad %d, idx %d, fn: %d", sda_pin->sercom[0].pad, sda_pin->sercom[0].index, sda_fun);
     DMESG("SCL pad %d, idx %d, fn: %d", scl_pin->sercom[0].pad, scl_pin->sercom[0].index, scl_fun);
