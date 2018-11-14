@@ -68,9 +68,8 @@ SAMDTimer::SAMDTimer(Tc* tc, uint8_t irqn)
 
     // configure
     tc->COUNT32.CTRLA.bit.MODE = 0x2; // 32 bit operation
-    tc->COUNT32.CTRLBSET.bit.DIR = 0; // count up
+    tc->COUNT32.CTRLBCLR.bit.DIR = 1; // count up
 
-    // we've configured the clock gen to be 120MHZ / 120 = 1Mhz
     tc->COUNT32.CTRLA.bit.PRESCALER = 0;
 
     // configure our well defined period for definitive interrupts.
