@@ -54,24 +54,29 @@ void ZSingleWireSerial::configureRxInterrupt(int enable)
 ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 {
     const mcu_pin_obj_t* single_wire_pin = samd_peripherals_get_pin(p.name);
+    uint8_t pad = 255;
 
     if (single_wire_pin->sercom[0].index != 0x3f)
     {
-        this->pad = single_wire_pin->sercom[0].pad;
+        pad = single_wire_pin->sercom[0].pad;
         this->pinmux = MUX_C; // c
         this->instance_number = single_wire_pin->sercom[0].index;
     }
     else if (single_wire_pin->sercom[1].index !=  0x3f)
     {
-        this->pad = single_wire_pin->sercom[1].pad;
+        pad = single_wire_pin->sercom[1].pad;
         this->pinmux = MUX_D; // d
         this->instance_number = single_wire_pin->sercom[1].index;
     }
     else
-        target_panic(864);
+        target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
+
+    // only pad 0 is allowed to be both tx and rx
+    if (pad != 0)
+        target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     Sercom* instance = sercom_insts[this->instance_number];
-    DMESG("SWS pad %d, idx %d, fn: %d", this->pad, this->instance_number, this->pinmux);
+    DMESG("SWS pad %d, idx %d, fn: %d", pad, this->instance_number, this->pinmux);
 
     this->id = DEVICE_ID_SERIAL;
 
@@ -140,7 +145,7 @@ int ZSingleWireSerial::configureTx(int enable)
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
         CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
-        CURRENT_USART->USART.CTRLA.bit.TXPO = this->pad;
+        CURRENT_USART->USART.CTRLA.bit.TXPO = 0;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0;
 
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 1;
@@ -175,7 +180,7 @@ int ZSingleWireSerial::configureRx(int enable)
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
         CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
-        CURRENT_USART->USART.CTRLA.bit.RXPO = this->pad; // PAD X
+        CURRENT_USART->USART.CTRLA.bit.RXPO = 0;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0; // 8 BIT
 
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 1;
