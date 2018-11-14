@@ -96,7 +96,8 @@ void DmaInstance::transfer(const void *src_addr, void *dst_addr, uint32_t len)
     CODAL_ASSERT(channel_number >= 0);
     target_disable_irq();
     DmacDescriptor &descriptor = DmaFactory::instance->getDescriptor(channel_number);
-    descriptor.BTCNT.bit.BTCNT = len;
+
+    descriptor.BTCNT.bit.BTCNT = len >> descriptor.BTCTRL.bit.BEATSIZE;
 
     if (src_addr)
         descriptor.SRCADDR.reg = (uint32_t)src_addr + len;

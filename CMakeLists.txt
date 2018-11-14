@@ -32,6 +32,7 @@ LIST(APPEND TOP_LEVEL_SOURCE
     "${SP}/clocks.c"
     "${SP2}/clocks.c"
     "${SP2}/cache.c"
+    "${SP2}/timers.c"
     "${SP}/pins.c"
     "${SP2}/pins.c"
     "${SP}/timers.c"
