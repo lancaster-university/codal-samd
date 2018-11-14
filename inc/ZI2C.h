@@ -27,7 +27,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "CodalConfig.h"
 #include "codal-core/inc/driver-models/I2C.h"
-#include "Pin.h"
+#include "ZPin.h"
 
 extern "C"
 {
@@ -43,12 +43,12 @@ class ZI2C : public codal::I2C
 {
     i2c_m_sync_desc i2c;
 protected:
-    codal::Pin &sda, &scl;
+    ZPin &sda, &scl;
 public:
     /**
      * Constructor.
      */
-    ZI2C(codal::Pin &sda, codal::Pin &scl);
+    ZI2C(ZPin &sda, ZPin &scl);
 
     /** Set the frequency of the I2C interface
      *
