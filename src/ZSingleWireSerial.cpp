@@ -7,6 +7,11 @@
 
 #include "driver_init.h"
 #include "peripheral_clk_config.h"
+extern "C"
+{
+    #include "pins.h"
+    #include "sercom.h"
+}
 
 using namespace codal;
 
@@ -45,13 +50,31 @@ void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
 void ZSingleWireSerial::configureRxInterrupt(int enable)
 {
 }
-
-ZSingleWireSerial::ZSingleWireSerial(Pin& p, Sercom* instance, int instance_number, uint32_t pinmux, uint8_t pad) : DMASingleWireSerial(p)
+// sws(io.a4, SERCOM0, 0, PINMUX_PA04D_SERCOM0_PAD0, 0),
+ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 {
+    const mcu_pin_obj_t* single_wire_pin = samd_peripherals_get_pin(p.name);
+
+    if (single_wire_pin->sercom[0].index != 0x3f)
+    {
+        this->pad = single_wire_pin->sercom[0].pad;
+        this->pinmux = MUX_C; // c
+        this->instance_number = single_wire_pin->sercom[0].index;
+    }
+    else if (single_wire_pin->sercom[1].index !=  0x3f)
+    {
+        this->pad = single_wire_pin->sercom[1].pad;
+        this->pinmux = MUX_D; // d
+        this->instance_number = single_wire_pin->sercom[1].index;
+    }
+    else
+        target_panic(864);
+
+    Sercom* instance = sercom_insts[this->instance_number];
+    DMESG("SWS pad %d, idx %d, fn: %d", this->pad, this->instance_number, this->pinmux);
+
     this->id = DEVICE_ID_SERIAL;
-    this->pad = pad;
-    this->pinmux = pinmux;
-    this->instance_number = instance_number;
+
     samd_peripherals_sercom_clock_init(instance, instance_number);
     _usart_async_init(&USART_INSTANCE, instance);
 
