@@ -29,6 +29,11 @@ DEALINGS IN THE SOFTWARE.
 #include "codal-core/inc/driver-models/I2C.h"
 #include "Pin.h"
 
+extern "C"
+{
+    #include "hal_i2c_m_sync.h"
+}
+
 namespace codal
 {
 /**
@@ -36,12 +41,9 @@ namespace codal
  */
 class ZI2C : public codal::I2C
 {
+    i2c_m_sync_desc i2c;
 protected:
-    I2C_HandleTypeDef i2c;
     codal::Pin &sda, &scl;
-    bool needsInit;
-    void init();
-
 public:
     /**
      * Constructor.
