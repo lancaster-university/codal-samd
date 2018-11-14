@@ -4,7 +4,6 @@ extern "C"
     #include "clocks.h"
     #include "timers.h"
 }
-#include "core_cm4.h"
 #include "CodalDmesg.h"
 
 using namespace codal;
@@ -107,8 +106,16 @@ void SAMDTimer::triggerIn(CODAL_TIMESTAMP t)
 void SAMDTimer::syncRequest()
 {
     __disable_irq();
+
+#ifdef SAMD51
     tc->COUNT32.CTRLBSET.bit.CMD = 0x04;
     while (tc->COUNT32.SYNCBUSY.bit.CTRLB);
+#elif SAMD21
+    tc->COUNT32.READREQ.bit.RREQ = 1;
+    while (tc->COUNT32.STATUS.bit.SYNCBUSY);
+#else
+    #error TC sync needs to be implemented
+#endif
 
     uint32_t snapshot = tc->COUNT32.COUNT.reg;
     uint32_t elapsed = snapshot - sigma;

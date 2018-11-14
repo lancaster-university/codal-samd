@@ -2,7 +2,7 @@
 #define SAMDTIMER_H
 
 #include "Timer.h"
-#include "samd51.h"
+#include "sam.h"
 
 namespace codal
 {
