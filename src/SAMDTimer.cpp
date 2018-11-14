@@ -15,21 +15,16 @@ SAMDTimer *SAMDTimer::instance = NULL;
 
 void tc_irq_handler(uint8_t index)
 {
-    DMESG("FIRE");
     bool isFallback = false;
 
     if (SAMDTimer::instance->tc->COUNT32.INTFLAG.bit.MC0 && SAMDTimer::instance->tc->COUNT32.INTENSET.reg & (1 << TC_INTENSET_MC0_Pos))
     {
-        DMESG("FB");
         isFallback = true;
         SAMDTimer::instance->tc->COUNT32.INTFLAG.bit.MC0 = 1;
     }
 
     if (SAMDTimer::instance->tc->COUNT32.INTFLAG.bit.MC1 && SAMDTimer::instance->tc->COUNT32.INTENSET.reg & (1 << TC_INTENSET_MC1_Pos))
-    {
         SAMDTimer::instance->tc->COUNT32.INTFLAG.bit.MC1 = 1;
-        DMESG("ACT");
-    }
 
     if (SAMDTimer::instance)
     {
@@ -47,6 +42,7 @@ void tc_irq_handler(uint8_t index)
 
 SAMDTimer::SAMDTimer(Tc* tc, uint8_t irqn)
 {
+    // TODO: neaten up constructor, look up tc and irqn given tc number.
     this->tc= tc;
     this->irqN = irqn;
     this->period = 10000000; // 10s fallback timer
@@ -59,16 +55,11 @@ SAMDTimer::SAMDTimer(Tc* tc, uint8_t irqn)
     while (gclk_enabled(clk_index))
         clk_index++;
 
-    DMESG("CLK INDEX: %d",clk_index);
-
     // 48MHz / 48 == 1MhZ
-    DMESG("enable clock gen");
     enable_clock_generator(clk_index, CLOCK_48MHZ, 48);
 
 
-    DMESG("turn on clks");
     // configure the clks for the current timer.
-    turn_on_clocks(true, 0, clk_index);
     turn_on_clocks(true, 0, clk_index);
 
     // disable the timer

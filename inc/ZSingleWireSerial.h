@@ -26,7 +26,6 @@ namespace codal
         DmaInstance* usart_rx_dma;
         uint32_t pinmux;
         uint8_t instance_number;
-        uint8_t pad;
 
         protected:
         virtual void configureRxInterrupt(int enable);
@@ -51,7 +50,7 @@ namespace codal
          *
          * @param pad the pad that the pin is routed through i.e. PA08 uses PAD0 of SERCOM4 (see data sheet).
          **/
-        ZSingleWireSerial(Pin& p, Sercom* instance, int instance_number, uint32_t pinmux, uint8_t pad);
+        ZSingleWireSerial(Pin& p);
 
         virtual int putc(char c);
         virtual int getc();
