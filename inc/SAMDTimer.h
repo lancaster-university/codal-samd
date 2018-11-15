@@ -22,8 +22,6 @@ namespace codal
         virtual void triggerIn(CODAL_TIMESTAMP t);
 
         virtual void syncRequest();
-
-        void enable();
     };
 }
 

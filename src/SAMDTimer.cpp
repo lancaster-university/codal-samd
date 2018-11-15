@@ -48,10 +48,7 @@ SAMDTimer::SAMDTimer(Tc* tc, uint8_t irqn)
     this->sigma = 0;
 
     instance = this;
-}
 
-void SAMDTimer::enable()
-{
     // find the first available clock and configure for one mhz generation
     uint8_t clk_index = find_free_gclk(48);
 
