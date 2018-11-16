@@ -34,6 +34,7 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalDmesg.h"
 #include "CapTouchButton.h"
 #include "EventModel.h"
+#include "SAMDTimer.h"
 #include <hpl_pm_base.h>
 
 extern "C" {
@@ -71,13 +72,8 @@ CapTouchButton::CapTouchButton(Pin &pin, int threshold)
         system_apb_clock_set_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_PTC);
         */
 
-        // We run the PTC at 8mhz so divide the 48mhz clock by 6.
-        uint8_t gclk = find_free_gclk(6);
-        CODAL_ASSERT(gclk <= GCLK_GEN_NUM);
-        enable_clock_generator(gclk, CLOCK_48MHZ, 6);
-
         /* Setup and enable generic clock source for PTC module. */
-        connect_gclk_to_peripheral(gclk, PTC_GCLK_ID);
+        connect_gclk_to_peripheral(CLK_GEN_8MHZ, PTC_GCLK_ID);
 
         _pm_enable_bus_clock(PM_BUS_APBC, PTC);
 

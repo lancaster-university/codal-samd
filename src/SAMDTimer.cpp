@@ -49,11 +49,8 @@ SAMDTimer::SAMDTimer(Tc* tc, uint8_t irqn)
 
     instance = this;
 
-    // find the first available clock and configure for one mhz generation
-    uint8_t clk_index = find_free_gclk(48);
-
-    // 48MHz / 48 == 1MhZ
-    enable_clock_generator(clk_index, CLOCK_48MHZ, 48);
+    // 48MHz / 6 == 8MhZ
+    enable_clock_generator(CLK_GEN_8MHZ, CLOCK_48MHZ, 6);
 
     // find the tx index in the insts array
     uint8_t tc_index = 0;
@@ -66,10 +63,10 @@ SAMDTimer::SAMDTimer(Tc* tc, uint8_t irqn)
 
     CODAL_ASSERT(tc_index < TC_INST_NUM);
 
-    DMESG("tc_ind: %d clk_index: %d",tc_index, clk_index);
+    DMESG("tc_ind: %d clk_index: %d", tc_index, CLK_GEN_8MHZ);
 
     // configure the clks for the current timer.
-    turn_on_clocks(true, tc_index, clk_index);
+    turn_on_clocks(true, tc_index, CLK_GEN_8MHZ);
 
     // disable the timer
     tc_set_enable(tc, false);
@@ -84,7 +81,7 @@ SAMDTimer::SAMDTimer(Tc* tc, uint8_t irqn)
     while (tc->COUNT32.STATUS.bit.SYNCBUSY);
 #endif
 
-    tc->COUNT32.CTRLA.bit.PRESCALER = 0;
+    tc->COUNT32.CTRLA.bit.PRESCALER = 3; // divide by 8
 
     // configure our well defined period for definitive interrupts.
     tc->COUNT32.CC[0].reg = this->period;

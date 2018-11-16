@@ -226,6 +226,7 @@ void ZSPI::init()
 
     hri_sercomspi_write_CTRLA_CPHA_bit(hw, _mode & 1);
     hri_sercomspi_write_CTRLA_CPOL_bit(hw, (_mode >> 1) & 1);
+    hri_sercomspi_set_CTRLA_RUNSTDBY_bit(hw);
     hri_sercomspi_write_CTRLB_CHSIZE_bf(hw, _bits - 8);
     hri_sercomspi_write_BAUD_BAUD_bf(hw, baud_reg_value);
     hri_sercomspi_wait_for_sync(hw, SERCOM_SPI_SYNCBUSY_MASK);
