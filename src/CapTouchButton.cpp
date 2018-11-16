@@ -34,8 +34,11 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalDmesg.h"
 #include "CapTouchButton.h"
 #include "EventModel.h"
-#include "samd/clocks.h"
 #include <hpl_pm_base.h>
+
+extern "C" {
+#include "samd/clocks.h"
+}
 
 static bool clock_initialized;
 
