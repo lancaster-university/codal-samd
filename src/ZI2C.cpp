@@ -22,44 +22,32 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
     const mcu_pin_obj_t* sda_pin = samd_peripherals_get_pin(sda.name);
     const mcu_pin_obj_t* scl_pin = samd_peripherals_get_pin(scl.name);
 
-    if (sda_pin->sercom[0].index == 0x3f || scl_pin->sercom[1].index ==  0x3f)
-        target_panic(864);
+    DMESG("SDA %d, SCL %d",sda.name,scl.name);
 
     int sercomIdx = -1;
     int sda_fun = -1;
     int scl_fun = -1;
 
-    if (sda_pin->sercom[0].pad == 0)
+    if (sda_pin->sercom[0].index != 0x3f && sda_pin->sercom[0].pad == 0)
     {
         sda_fun = MUX_C; // c
         sercomIdx = sda_pin->sercom[0].index;
-    } else if (sda_pin->sercom[1].pad == 0)
+    } else if (sda_pin->sercom[1].index != 0x3f && sda_pin->sercom[1].pad == 0)
     {
         sda_fun = MUX_D; // d
         sercomIdx = sda_pin->sercom[1].index;
     } else
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
-    if (scl_pin->sercom[0].index == sercomIdx)
-    {
-        if(scl_pin->sercom[0].pad != 1)
-            target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
-
+    if (scl_pin->sercom[0].index != 0x3f && scl_pin->sercom[0].index == sercomIdx && scl_pin->sercom[0].pad == 1)
         scl_fun = MUX_C; // c
-    }
-    else if (scl_pin->sercom[1].index == sercomIdx)
-    {
-        if(scl_pin->sercom[1].pad != 0)
-            target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
-
+    else if (scl_pin->sercom[1].index != 0x3f && scl_pin->sercom[1].index == sercomIdx && scl_pin->sercom[1].pad == 1)
         scl_fun = MUX_D; // d
-    }
     else
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
-    DMESG("SDA pad %d, idx %d, fn: %d", sda_pin->sercom[0].pad, sda_pin->sercom[0].index, sda_fun);
-    DMESG("SCL pad %d, idx %d, fn: %d", scl_pin->sercom[0].pad, scl_pin->sercom[0].index, scl_fun);
-    DMESG("SERCOM IDX %d", sercomIdx);
+    DMESG("SDA pad %d, idx %d, fn: %d", sercomIdx, sda_fun);
+    DMESG("SCL pad %d, idx %d, fn: %d", sercomIdx, scl_fun);
 
     sda._setMux(sda_fun);
     scl._setMux(scl_fun);
@@ -107,8 +95,11 @@ int ZI2C::setFrequency(uint32_t frequency)
 */
 int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 {
-    DMESG("WRITE: %d",address);
+    address = address >> 1;
+    DMESG("W A: %d L: %d", address, len);
     struct _i2c_m_msg msg;
+
+    int ret = I2C_OK;
 
     for (int i = 0; i < MAX_I2C_RETRIES; i++)
     {
@@ -116,7 +107,7 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
         msg.len = len;
         msg.flags  = repeated ? 0 : I2C_M_STOP;
         msg.buffer = (uint8_t *) data;
-        int ret = _i2c_m_sync_transfer(&i2c.device, &msg);
+        ret = _i2c_m_sync_transfer(&i2c.device, &msg);
 
         if (ret == I2C_OK)
         {
@@ -125,7 +116,7 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
         }
     }
 
-    DMESG("ERR");
+    DMESG("HAL ERR %d",ret);
     return DEVICE_I2C_ERROR;
 }
 
@@ -148,8 +139,11 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
      */
 int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 {
-    DMESG("READ: %d",address);
+    address = address >> 1;
+    DMESG("R A: %d, L: %d", address, len);
     struct _i2c_m_msg msg;
+
+    int ret = I2C_OK;
 
     for (int i = 0; i < MAX_I2C_RETRIES; i++)
     {
@@ -157,7 +151,7 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
         msg.len    = len;
         msg.flags  = (repeated ? 0 : I2C_M_STOP) | I2C_M_RD;
         msg.buffer = data;
-        int ret = _i2c_m_sync_transfer(&i2c.device, &msg);
+        ret = _i2c_m_sync_transfer(&i2c.device, &msg);
 
         if (ret == I2C_OK)
         {
@@ -166,33 +160,8 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
         }
     }
 
-    DMESG("ERR");
+    DMESG("HAL ERR %d",ret);
     return DEVICE_I2C_ERROR;
-}
-
-/**
- * Performs a typical register write operation to the I2C slave device provided.
- * This consists of:
- *  - Asserting a Start condition on the bus
- *  - Selecting the Slave address (as an 8 bit address)
- *  - Writing the 8 bit register address provided
- *  - Writing the 8 bit value provided
- *  - Asserting a Stop condition on the bus
- *
- * The CPU will busy wait until the transmission is complete..
- *
- * @param address 8bit address of the device to write to
- * @param reg The 8bit address of the register to write to.
- * @param value The value to write.
- *
- * @return DEVICE_OK on success, DEVICE_I2C_ERROR if the the write request failed.
- */
-int ZI2C::writeRegister(uint16_t address, uint8_t reg, uint8_t value)
-{
-    uint8_t command[2];
-    command[0] = reg;
-    command[1] = value;
-    return write(address, command, 2, false);
 }
 
 /**
