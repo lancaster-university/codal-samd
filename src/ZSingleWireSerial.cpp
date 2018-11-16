@@ -54,29 +54,22 @@ void ZSingleWireSerial::configureRxInterrupt(int enable)
 ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 {
     const mcu_pin_obj_t* single_wire_pin = samd_peripherals_get_pin(p.name);
-    uint8_t pad = 255;
 
-    if (single_wire_pin->sercom[0].index != 0x3f)
+    if (single_wire_pin->sercom[0].index != 0x3f && single_wire_pin->sercom[0].pad == 0)
     {
-        pad = single_wire_pin->sercom[0].pad;
         this->pinmux = MUX_C; // c
         this->instance_number = single_wire_pin->sercom[0].index;
     }
-    else if (single_wire_pin->sercom[1].index !=  0x3f)
+    else if (single_wire_pin->sercom[1].index != 0x3f && single_wire_pin->sercom[1].pad == 0)
     {
-        pad = single_wire_pin->sercom[1].pad;
         this->pinmux = MUX_D; // d
         this->instance_number = single_wire_pin->sercom[1].index;
     }
     else
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
-    // only pad 0 is allowed to be both tx and rx
-    if (pad != 0)
-        target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
-
     Sercom* instance = sercom_insts[this->instance_number];
-    DMESG("SWS pad %d, idx %d, fn: %d", pad, this->instance_number, this->pinmux);
+    DMESG("SWS pad %d, idx %d, fn: %d", 0, this->instance_number, this->pinmux);
 
     this->id = DEVICE_ID_SERIAL;
 

@@ -44,6 +44,7 @@ private:
     bool        active;
     int         dataReady;
     int         sampleRate;
+    Tc*         tc;
 
     DmaInstance* dmaInstance;
 

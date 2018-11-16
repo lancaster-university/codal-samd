@@ -31,7 +31,8 @@ DEALINGS IN THE SOFTWARE.
 #include "Event.h"
 #include "CodalFiber.h"
 
-extern "C" {
+extern "C"
+{
 #include "sercom.h"
 }
 
@@ -86,7 +87,7 @@ void ZSPI::init()
 
     if (!sercom)
     {
-        auto sclk_mcu = find_mcu_pin(sclk->name);
+        auto sclk_mcu = find_mcu_pin(sclk ? sclk->name : PIN_NONE);
         auto miso_mcu = find_mcu_pin(miso ? miso->name : PIN_NONE);
         auto mosi_mcu = find_mcu_pin(mosi ? mosi->name : PIN_NONE);
 
@@ -108,19 +109,43 @@ void ZSPI::init()
             if (mosi_si == -1)
                 continue;
 
-            int sclk_pad = sclk_mcu->sercom[sclk_si].pad;
-            int mosi_pad = mosi_mcu ? mosi_mcu->sercom[mosi_si].pad : 0;
-            int miso_pad = miso_mcu ? miso_mcu->sercom[miso_si].pad : 2;
+            int sclk_pad = sclk_mcu ? sclk_mcu->sercom[sclk_si].pad : -1;
+            int mosi_pad = mosi_mcu ? mosi_mcu->sercom[mosi_si].pad : -1;
+            int miso_pad = miso_mcu ? miso_mcu->sercom[miso_si].pad : -1;
 
-            if (!mosi_mcu && miso_mcu && miso_pad == mosi_pad)
-            {
-                mosi_pad = sclk_pad == 3 ? 2 : 3;
-            }
-
-            if (!samd_peripherals_valid_spi_clock_pad(sclk_pad))
+            if (sclk_pad != -1 && !samd_peripherals_valid_spi_clock_pad(sclk_pad))
                 continue;
 
-            dopo = samd_peripherals_get_spi_dopo(sclk_pad, mosi_pad);
+            if (sclk_pad == -1)
+            {
+                if (mosi_pad == -1)
+                {
+                    dopo = 0;
+                }
+                else
+                {
+                    for (int i = 0; i < 4; ++i)
+                    {
+                        dopo = samd_peripherals_get_spi_dopo(i, mosi_pad);
+                        if (dopo <= 3)
+                            break;
+                    }
+                }
+            }
+            else if (mosi_pad == -1)
+            {
+                for (int i = 0; i < 4; ++i)
+                {
+                    dopo = samd_peripherals_get_spi_dopo(sclk_pad, i);
+                    if (dopo <= 3)
+                        break;
+                }
+            }
+            else
+            {
+                dopo = samd_peripherals_get_spi_dopo(sclk_pad, mosi_pad);
+            }
+
             if (dopo > 3)
                 continue;
 
@@ -170,7 +195,8 @@ void ZSPI::init()
         if (miso)
         {
             dmaRxCh = factory.allocate();
-            dmaRxCh->configure(sercom_trigger_src(sercomIdx, false), BeatByte, &sercom->SPI.DATA.reg, NULL);
+            dmaRxCh->configure(sercom_trigger_src(sercomIdx, false), BeatByte,
+                               &sercom->SPI.DATA.reg, NULL);
         }
         else
             dmaRxCh = NULL;
@@ -178,7 +204,8 @@ void ZSPI::init()
         if (mosi)
         {
             dmaTxCh = factory.allocate();
-            dmaTxCh->configure(sercom_trigger_src(sercomIdx, true), BeatByte, NULL, &sercom->SPI.DATA.reg);
+            dmaTxCh->configure(sercom_trigger_src(sercomIdx, true), BeatByte, NULL,
+                               &sercom->SPI.DATA.reg);
             dmaTxCh->onTransferComplete(this);
         }
         else
@@ -209,10 +236,9 @@ void ZSPI::init()
 
 ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk) : codal::SPI()
 {
-    this->mosi = (ZPin*)&mosi;
-    this->miso = (ZPin*)&miso;
-    this->sclk = (ZPin*)&sclk;
-
+    this->mosi = (ZPin *)&mosi;
+    this->miso = (ZPin *)&miso;
+    this->sclk = (ZPin *)&sclk;
 
     this->transferCompleteEventCode = codal::allocateNotifyEvent();
 

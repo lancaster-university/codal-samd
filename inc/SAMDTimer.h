@@ -17,6 +17,8 @@ namespace codal
 
         SAMDTimer(Tc* tc, uint8_t irqn);
 
+        SAMDTimer() : SAMDTimer(TC0, TC0_IRQn) {}
+
         static SAMDTimer *instance;
 
         virtual void triggerIn(CODAL_TIMESTAMP t);
