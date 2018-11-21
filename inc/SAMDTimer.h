@@ -32,4 +32,14 @@ namespace codal
     };
 }
 
+#define CLK_GEN_8MHZ 4
+
+#ifdef SAMD51
+#define CLK_GEN_48MHZ 1
+#endif
+
+#ifdef SAMD21
+#define CLK_GEN_48MHZ 0
+#endif
+
 #endif
