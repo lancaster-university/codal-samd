@@ -27,6 +27,7 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalCompat.h"
 #include "CodalDmesg.h"
 #include "SAMDDAC.h"
+#include "SAMDTimer.h"
 
 #include "pins.h"
 #include "tc.h"
@@ -78,7 +79,7 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
     // SAMD21: This clock is 48mhz despite the datasheet saying it must only be <= 350kHz, per
     // datasheet table 37-6. It's incorrect because the max output rate is 350ksps and is only
     // achieved when the GCLK is more than 8mhz.
-    _gclk_enable_channel(DAC_GCLK_ID, CONF_GCLK_DAC_SRC);
+    _gclk_enable_channel(DAC_GCLK_ID, CLK_GEN_8MHZ);
 
     DAC->CTRLA.bit.SWRST = 1;
     while (DAC->CTRLA.bit.SWRST == 1)
@@ -123,14 +124,8 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
     }
     CODAL_ASSERT(tc_index < TC_INST_NUM);
 
-    // Use the 48mhz clocks on both the SAMD21 and 51 because we will be going much slower.
-    uint8_t tc_gclk = 0;
-#ifdef SAMD51
-    tc_gclk = 1;
-#endif
-
     tc_set_enable(tc, false);
-    turn_on_clocks(true, tc_index, tc_gclk);
+    turn_on_clocks(true, tc_index, CLK_GEN_8MHZ);
 
     // Don't bother setting the period. We set it before you playback anything.
     tc_set_enable(tc, false);
@@ -190,8 +185,8 @@ int SAMDDAC::getSampleRate()
  */
 int SAMDDAC::setSampleRate(int frequency)
 {
-    uint32_t period = CONF_GCLK_DAC_FREQUENCY / frequency;
-    sampleRate = CONF_GCLK_DAC_FREQUENCY / period;
+    uint32_t period = 8000000 / frequency;
+    sampleRate = 8000000 / period;
 
     tc_set_enable(tc, false);
     tc->COUNT16.CC[0].reg = period; // Set period
@@ -234,10 +229,6 @@ int SAMDDAC::pull()
 
     dmaInstance->transfer((const void *)&output[0], NULL, output.length());
 
-    DMESG("btcnt: %d", dmaInstance->getDescriptor().BTCNT.reg);
-    target_wait_us(100);
-    //dmaInstance->disable();
-    DMESG("btcnt: %d", dmaInstance->getDescriptor().BTCNT.reg);
 
     return DEVICE_OK;
 }
@@ -257,10 +248,8 @@ extern void debug_flip();
 /**
  * Base implementation of a DMA callback
  */
-void SAMDDAC::dmaTransferComplete()
+void SAMDDAC::dmaTransferComplete(DmaCode c)
 {
-    DMESG("DAC DMA");
-
     if (dataReady == 0)
     {
         active = false;

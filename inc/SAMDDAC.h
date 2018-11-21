@@ -96,7 +96,7 @@ public:
     /**
      * Interrupt callback when playback of DMA buffer has completed
      */
-    virtual void dmaTransferComplete();
+    virtual void dmaTransferComplete(DmaCode c);
 };
 
 #endif
