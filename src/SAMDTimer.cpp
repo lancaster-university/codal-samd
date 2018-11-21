@@ -128,7 +128,7 @@ void SAMDTimer::triggerIn(CODAL_TIMESTAMP t)
 
 void SAMDTimer::syncRequest()
 {
-    NVIC_DisableIRQ((IRQn_Type)this->irqN);
+    target_disable_irq();
 
 #ifdef SAMD51
     tc->COUNT32.CTRLBSET.bit.CMD = 0x04;
@@ -144,5 +144,5 @@ void SAMDTimer::syncRequest()
     uint32_t elapsed = snapshot - sigma;
     sigma = snapshot;
     this->sync(elapsed);
-    NVIC_EnableIRQ((IRQn_Type)this->irqN);
+    target_enable_irq();
 }
