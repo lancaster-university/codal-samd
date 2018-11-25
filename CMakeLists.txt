@@ -54,9 +54,11 @@ LIST(APPEND TOP_LEVEL_SOURCE
     "${ASF}/hal/src/hal_atomic.c"
     "${ASF}/hal/src/hal_spi_m_sync.c"
     "${ASF}/hal/src/hal_usart_async.c"
+    "${ASF}/hal/src/hal_adc_sync.c"
     "${ASF}/hal/src/hal_i2c_m_sync.c"
     "${ASF}/hal/src/hal_io.c"
     "${ASF}/hpl/sercom/hpl_sercom.c"
+    "${ASF}/hpl/adc/hpl_adc.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/asm/CortexContextSwitch.s")
 
 # add them

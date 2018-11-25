@@ -35,10 +35,19 @@ DEALINGS IN THE SOFTWARE.
 #include "codal-core/inc/types/Event.h"
 #include "pinmap.h"
 #include "hal_gpio.h"
+#include "hal_adc_sync.h"
+#include "sam.h"
 #include "CodalDmesg.h"
+#include "SAMDTimer.h"
+#include "hpl_gclk_base.h"
 
 #define IO_STATUS_CAN_READ                                                                         \
     (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
+
+static uint8_t adc_clk_enabled = 0;
+
+#define MUX_B           1
+
 
 namespace codal
 {
@@ -319,8 +328,58 @@ int ZPin::setServoValue(int value, int range, int center)
 int ZPin::getAnalogValue()
 {
     // check if this pin has an analogue mode...
-    //    if (!(PIN_CAPABILITY_ANALOG & capability))
-    return DEVICE_NOT_SUPPORTED;
+    if (!(PIN_CAPABILITY_ANALOG & capability))
+        return DEVICE_NOT_SUPPORTED;
+
+    const mcu_pin_obj_t* adc_pin = samd_peripherals_get_pin(name);
+    uint8_t channel = adc_pin->adc_input[0];
+
+    uint16_t res = 0;
+
+    // adc function is B
+    if (!(status & IO_STATUS_ANALOG_IN))
+    {
+        disconnect();
+        gpio_set_pin_function(name, MUX_B); // mux b is ADC
+
+        if (adc_clk_enabled == 0)
+        {
+            adc_clk_enabled = 1;
+            _gclk_enable_channel(ADC_GCLK_ID, CLK_GEN_8MHZ);
+        }
+
+        status = IO_STATUS_ANALOG_IN;
+    }
+
+    // rather than maintain state on many pins, we reconfigure the adc each time it is used.
+    static adc_sync_descriptor adc_descriptor;
+
+    adc_sync_init(&adc_descriptor, ADC, NULL);
+    adc_sync_set_reference(&adc_descriptor, ADC_REFCTRL_REFSEL_INTVCC1_Val);
+
+#ifdef SAMD21
+    adc_sync_set_channel_gain(&adc_descriptor, channel, ADC_INPUTCTRL_GAIN_DIV2_Val);
+#endif
+
+    adc_sync_set_resolution(&adc_descriptor, ADC_CTRLB_RESSEL_10BIT_Val); // 10 bit conversion
+    adc_sync_enable_channel(&adc_descriptor, channel);
+    adc_sync_set_inputs(&adc_descriptor, channel, ADC_INPUTCTRL_MUXNEG_GND_Val, channel);
+
+#ifdef SAMD51
+    #warning the ADC code may need changing (probs not)
+#endif
+    // first result is always garbaggeeee, according to the datasheet
+    adc_sync_read_channel(&adc_descriptor, channel, (uint8_t*) &res, sizeof(res));
+
+    // returns the number of bytes read.
+    int ret = adc_sync_read_channel(&adc_descriptor, adc_pin->adc_input[0], (uint8_t*)&res, sizeof(res));
+
+    adc_sync_deinit(&adc_descriptor);
+
+    if (ret <= 0)
+        return DEVICE_NOT_SUPPORTED;
+
+    return res;
 }
 
 /**

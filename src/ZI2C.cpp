@@ -96,7 +96,7 @@ int ZI2C::setFrequency(uint32_t frequency)
 int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 {
     address = address >> 1;
-    DMESG("W A: %d L: %d", address, len);
+    // DMESG("W A: %d L: %d", address, len);
     struct _i2c_m_msg msg;
 
     int ret = I2C_OK;
@@ -111,12 +111,12 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 
         if (ret == I2C_OK)
         {
-            DMESG("OK");
+            // DMESG("OK");
             return DEVICE_OK;
         }
     }
 
-    DMESG("HAL ERR %d",ret);
+    // DMESG("HAL ERR %d",ret);
     return DEVICE_I2C_ERROR;
 }
 
@@ -140,7 +140,7 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 {
     address = address >> 1;
-    DMESG("R A: %d, L: %d", address, len);
+    // DMESG("R A: %d, L: %d", address, len);
     struct _i2c_m_msg msg;
 
     int ret = I2C_OK;
@@ -155,7 +155,7 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 
         if (ret == I2C_OK)
         {
-            DMESG("OK");
+            // DMESG("OK");
             return DEVICE_OK;
         }
     }
