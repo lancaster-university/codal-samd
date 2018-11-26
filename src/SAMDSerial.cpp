@@ -21,7 +21,7 @@ using namespace codal;
 #define LOG DMESG
 
 #define CURRENT_USART ((Sercom*)(USART_INSTANCE.hw))
-
+#if 0
 void SAMDSerial::dmaTransferComplete(DmaCode errCode)
 {
     uint16_t mode = 0;
@@ -289,3 +289,4 @@ int SAMDSerial::sendBreak()
     // line break
     return DEVICE_OK;
 }
+#endif
