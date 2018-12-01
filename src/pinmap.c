@@ -5,12 +5,15 @@ uint8_t used_sercoms[SERCOM_INST_NUM];
 const mcu_pin_obj_t *find_mcu_pin(uint8_t pinId)
 {
     int i = 0;
+    if (pinId == PIN_NONE)
+        return NULL;
     while (samd_pins[i].number != PIN_NONE)
     {
         if (samd_pins[i].number == pinId)
             return &samd_pins[i];
         i++;
     }
+    target_panic(90);
     return NULL;
 }
 
