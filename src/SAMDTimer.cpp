@@ -33,6 +33,9 @@ void tc_irq_handler(uint8_t index)
         {
             SAMDTimer::instance->sigma = 0;
             SAMDTimer::instance->tc->COUNT32.COUNT.reg = 0;
+#ifdef SAMD21
+            while (SAMDTimer::instance->tc->COUNT32.STATUS.bit.SYNCBUSY);
+#endif
         }
 
         SAMDTimer::instance->trigger();
@@ -106,21 +109,19 @@ void SAMDTimer::triggerIn(CODAL_TIMESTAMP t)
     if (t < MINIMUM_PERIOD)
         t = MINIMUM_PERIOD;
 
-    NVIC_DisableIRQ((IRQn_Type)this->irqN);
-
+    target_disable_irq();
     tc->COUNT32.CC[1].reg = t;
 #ifdef SAMD21
     while (tc->COUNT32.STATUS.bit.SYNCBUSY);
 #endif
 
     sigma = 0;
-
     tc->COUNT32.COUNT.reg = 0;
 #ifdef SAMD21
     while (tc->COUNT32.STATUS.bit.SYNCBUSY);
 #endif
 
-    NVIC_EnableIRQ((IRQn_Type)this->irqN);
+    target_enable_irq();
 }
 
 void SAMDTimer::syncRequest()
@@ -131,6 +132,7 @@ void SAMDTimer::syncRequest()
     tc->COUNT32.CTRLBSET.bit.CMD = 0x04;
     while (tc->COUNT32.SYNCBUSY.bit.CTRLB);
 #elif SAMD21
+    tc->COUNT32.READREQ.bit.ADDR = 0x10;
     tc->COUNT32.READREQ.bit.RREQ = 1;
     while (tc->COUNT32.STATUS.bit.SYNCBUSY);
 #else
