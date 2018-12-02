@@ -10,7 +10,6 @@ else ()
     set(DEVICE_DIR "samd51")
 endif()
 
-# TODO allow SAMD21
 set(ASF "${CMAKE_CURRENT_SOURCE_DIR}/asf4/${DEVICE_DIR}")
 set(SP "${CMAKE_CURRENT_SOURCE_DIR}/samd-peripherals/samd")
 set(SP2 "${SP}/${DEVICE_DIR}")
@@ -42,6 +41,8 @@ LIST(APPEND TOP_LEVEL_SOURCE
     "${SP}/external_interrupts.c"
     "${SP2}/external_interrupts.c"
     "${SP2}/cache.c"
+    "${SP}/i2s.c"
+    "${SP2}/i2s.c"
     "${SP2}/timers.c"
     "${SP}/pins.c"
     "${SP2}/pins.c"
