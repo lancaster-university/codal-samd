@@ -24,7 +24,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "Event.h"
 #include "CodalCompat.h"
-#include "SAMD21PDM.h"
+#include "SAMDPDM.h"
 #include "Pin.h"
 #include "SAMDTimer.h"
 #include "CodalDmesg.h"
