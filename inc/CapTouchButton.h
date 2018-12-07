@@ -34,6 +34,9 @@ DEALINGS IN THE SOFTWARE.
 #include "Pin.h"
 #include "codal_target_hal.h"
 
+// No cap-touch yet on SAMD51
+#ifdef SAMD21
+
 #include "adafruit_ptc.h"
 
 
@@ -118,5 +121,7 @@ private:
      */
     void setValue(int reading);
 };
+
+#endif
 
 #endif

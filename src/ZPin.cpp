@@ -345,7 +345,12 @@ int ZPin::getAnalogValue()
         if (adc_clk_enabled == 0)
         {
             adc_clk_enabled = 1;
+#ifdef SAMD21
             _gclk_enable_channel(ADC_GCLK_ID, CLK_GEN_8MHZ);
+#else
+            _gclk_enable_channel(ADC0_GCLK_ID, CLK_GEN_8MHZ);
+            _gclk_enable_channel(ADC1_GCLK_ID, CLK_GEN_8MHZ);
+#endif
         }
 
         status = IO_STATUS_ANALOG_IN;
@@ -354,7 +359,12 @@ int ZPin::getAnalogValue()
     // rather than maintain state on many pins, we reconfigure the adc each time it is used.
     static adc_sync_descriptor adc_descriptor;
 
+#ifdef SAMD21
     adc_sync_init(&adc_descriptor, ADC, NULL);
+#else
+    adc_sync_init(&adc_descriptor, ADC0, NULL);
+    #warning what to do about ADC1?
+#endif
     adc_sync_set_reference(&adc_descriptor, ADC_REFCTRL_REFSEL_INTVCC1_Val);
 
 #ifdef SAMD21
