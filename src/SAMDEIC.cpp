@@ -65,13 +65,6 @@ void EICChannel::enable(EICEventType t)
     turn_on_eic_channel(this->channel_number, t, EIC_HANDLER_APP);
 }
 
-EICChannel::~EICChannel()
-{
-    disable();
-    EICFactory::instance->free(this->channel_number);
-}
-
-
 EICFactory::EICFactory()
 {
     if (instance)
@@ -110,10 +103,13 @@ EICChannel* EICFactory::getInstance(int channel)
         return EICFactory::instances[channel];
     }
 
-    return NULL;
+    return instance->instances[channel];
 }
 
 void EICFactory::free(int channel)
 {
+    target_disable_irq();
+    delete EICFactory::instances[channel];
     EICFactory::instances[channel] = NULL;
+    target_enable_irq();
 }
