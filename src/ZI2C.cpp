@@ -116,7 +116,7 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
         }
     }
 
-    // DMESG("HAL ERR %d",ret);
+    DMESG("W HAL ERR %d",ret);
     return DEVICE_I2C_ERROR;
 }
 
@@ -160,7 +160,7 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
         }
     }
 
-    DMESG("HAL ERR %d",ret);
+    DMESG("R HAL ERR %d",ret);
     return DEVICE_I2C_ERROR;
 }
 
