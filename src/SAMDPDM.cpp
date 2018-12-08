@@ -48,6 +48,12 @@ const int8_t pdmDecode[256] = {
 B6(0), B6(1), B6(1), B6(2)
 };
 
+#ifdef SAMD21
+#define DATAREG DATA[1]
+#else
+#define DATAREG RXDATA
+#endif
+
 // a windowed sinc filter for 44 khz, 64 samples
 const uint16_t sincfilter[SAMD21_PDM_DECIMATION] = {0, 2, 9, 21, 39, 63, 94, 132, 179, 236, 302, 379, 467, 565, 674, 792, 920, 1055, 1196, 1341, 1487, 1633, 1776, 1913, 2042, 2159, 2263, 2352, 2422, 2474, 2506, 2516, 2506, 2474, 2422, 2352, 2263, 2159, 2042, 1913, 1776, 1633, 1487, 1341, 1196, 1055, 920, 792, 674, 565, 467, 379, 302, 236, 179, 132, 94, 63, 39, 21, 9, 2, 0, 0};
 
@@ -105,7 +111,7 @@ SAMD21PDM::SAMD21PDM(ZPin &sd, ZPin &sck, int sampleRate, uint16_t id) : output(
     connect_gclk_to_peripheral(CLK_GEN_48MHZ, I2S_GCLK_ID_0);
 
     // Configure a DMA channel
-    dma->configure(I2S_DMAC_ID_RX_1, DmaBeatSize::BeatWord, &I2S->DATA[1].reg, NULL);
+    dma->configure(I2S_DMAC_ID_RX_1, DmaBeatSize::BeatWord, &I2S->DATAREG.reg, NULL);
     dma->onTransferComplete(this);
 
     // Configure for DMA enabled, single channel PDM input.
@@ -154,6 +160,7 @@ SAMD21PDM::SAMD21PDM(ZPin &sd, ZPin &sck, int sampleRate, uint16_t id) : output(
     // Configure for a 32 bit wide receive, with a SCK clock generated from GCLK_I2S_0.
     I2S->CLKCTRL[0].reg = clkctrl | ((clockDivisor-1) << 19);
 
+#ifdef SAMD21
     // Configure serializer for a 32 bit data word transferred in a single DMA operation, clocked by clock unit 0.
     // set BITREV to give us LSB first data
     I2S->SERCTRL[1].reg = // I2S_SERCTRL_RXLOOP |    // Dont use loopback mode
@@ -175,6 +182,15 @@ SAMD21PDM::SAMD21PDM(ZPin &sd, ZPin &sck, int sampleRate, uint16_t id) : output(
       I2S_SERCTRL_DATASIZE_32 |
       I2S_SERCTRL_TXDEFAULT(0) |
       I2S_SERCTRL_EXTEND(0);
+#else
+    I2S->RXCTRL.reg =
+      I2S_RXCTRL_BITREV   |  // Do not transfer LSB first (MSB first!)
+      I2S_RXCTRL_SLOTADJ     |  // Data is left in slot
+      I2S_RXCTRL_SERMODE_PDM2 |
+      I2S_RXCTRL_DATASIZE_32 |
+      //I2S_SERCTRL_TXDEFAULT(0) |
+      I2S_RXCTRL_EXTEND(0);
+#endif
 
     // enable all of the things (except SWRST)
     I2S->CTRLA.reg = 0x3E;
@@ -300,5 +316,5 @@ void SAMD21PDM::startDMA()
     // DMESG("STRT");
     dma->transfer(NULL, pdmReceiveBuffer, SAMD21_PDM_BUFFER_SIZE);
     // Access the Data buffer once, to ensure we don't miss a DMA trigger...
-    I2S->DATA[1].reg = I2S->DATA[1].reg;
+    I2S->DATAREG.reg = I2S->DATAREG.reg;
 }

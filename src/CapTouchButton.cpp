@@ -37,6 +37,8 @@ DEALINGS IN THE SOFTWARE.
 #include "SAMDTimer.h"
 #include <hpl_pm_base.h>
 
+#ifdef SAMD21
+
 extern "C" {
 #include "samd/clocks.h"
 }
@@ -197,3 +199,5 @@ CapTouchButton::~CapTouchButton()
     EventModel::defaultEventBus->ignore(DEVICE_ID_TOUCH_SENSOR, CAP_TOUCH_BUTTON_UPDATE_NEEDED,
                                         this, &CapTouchButton::update);
 }
+
+#endif
