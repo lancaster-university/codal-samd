@@ -113,8 +113,7 @@ void ZPin::disconnect()
 
     if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE))
     {
-        if (this->chan)
-            delete this->chan; // this->chan->disable(); may be better if heap delete takes too long...
+        this->chan->disable();
         this->chan = NULL;
 
         if (this->evCfg)
