@@ -1,5 +1,5 @@
-#ifndef ZSINGLE_WIRE_SERIAL_H
-#define ZSINGLE_WIRE_SERIAL_H
+#ifndef SAMD_SERIAL_H
+#define SAMD_SERIAL_H
 
 #include "Pin.h"
 #include "CodalComponent.h"
@@ -21,21 +21,27 @@ namespace codal
 {
     class SAMDSerial : public Serial
     {
-        uint32_t baud;
         struct ::_usart_async_device USART_INSTANCE;
-        DmaInstance* usart_tx_dma;
-        DmaInstance* usart_rx_dma;
-        uint32_t pinmux;
         uint8_t instance_number;
+        uint8_t tx_pinmux;
+        uint8_t tx_pad;
+
+        uint8_t rx_pinmux;
+        uint8_t rx_pad;
+
+        void setSercomInstanceValues(Pin& tx, Pin& rx);
+        void enablePins(Pin& tx, Pin& rx);
 
         protected:
-        virtual void configureRxInterrupt(int enable);
-
-        virtual int configureTx(int);
-
-        virtual int configureRx(int);
+        virtual int enableInterrupt(SerialInterruptType t);
+        virtual int disableInterrupt(SerialInterruptType t);
+        virtual int setBaudrate(uint32_t baudrate);
+        virtual int configurePins(Pin& tx, Pin& rx);
 
         public:
+
+        virtual int putc(char);
+        virtual int getc();
 
         /**
          * Constructor
@@ -47,24 +53,7 @@ namespace codal
          **/
         SAMDSerial(Pin& tx, Pin& rx);
 
-        virtual int putc(char c);
-        virtual int getc();
-
-        virtual int send(uint8_t* data, int len);
-        virtual int receive(uint8_t* data, int len);
-
-        virtual int sendDMA(uint8_t* data, int len);
-        virtual int receiveDMA(uint8_t* data, int len);
-        virtual int abortDMA();
-
-        virtual int setBaud(uint32_t baud);
-        virtual uint32_t getBaud();
-
-        virtual int setMode(SingleWireMode sw);
-
-        virtual int sendBreak();
-
-        void dmaTransferComplete(DmaCode c);
+        ~SAMDSerial();
     };
 }
 
