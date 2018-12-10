@@ -101,11 +101,6 @@ class EICChannel
      * @param interface the EICinterface to invoke.
      **/
     void setChangeCallback(EICInterface* interface);
-
-    /**
-     * Destructor... implicitly calls EICFactory->free
-     **/
-    ~EICChannel();
 };
 
 class EICFactory

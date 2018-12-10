@@ -63,9 +63,8 @@ static inline int sercom_trigger_src(int sercomIdx, bool tx)
 class DmaInstance
 {
 
-    int channel_number;
-
     public:
+    int channel_number;
     DmaComponent* cb;
 
     DmaInstance(int channel);

@@ -2,7 +2,7 @@
 #define SAMDTIMER_H
 
 #include "Timer.h"
-#include "samd51.h"
+#include "sam.h"
 
 namespace codal
 {
@@ -17,7 +17,12 @@ namespace codal
 
         SAMDTimer(Tc* tc, uint8_t irqn);
 
+#ifdef SAMD51
         SAMDTimer() : SAMDTimer(TC0, TC0_IRQn) {}
+#endif
+#ifdef SAMD21
+        SAMDTimer() : SAMDTimer(TC4, TC4_IRQn) {}
+#endif
 
         static SAMDTimer *instance;
 
@@ -26,5 +31,15 @@ namespace codal
         virtual void syncRequest();
     };
 }
+
+#define CLK_GEN_8MHZ 4
+
+#ifdef SAMD51
+#define CLK_GEN_48MHZ 1
+#endif
+
+#ifdef SAMD21
+#define CLK_GEN_48MHZ 0
+#endif
 
 #endif
