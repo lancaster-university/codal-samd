@@ -21,7 +21,6 @@ namespace codal
 {
     class SAMDSerial : public Serial
     {
-        struct ::_usart_async_device USART_INSTANCE;
         uint8_t instance_number;
         uint8_t tx_pinmux;
         uint8_t tx_pad;
@@ -39,6 +38,8 @@ namespace codal
         virtual int configurePins(Pin& tx, Pin& rx);
 
         public:
+
+        struct ::_usart_async_device USART_INSTANCE;
 
         virtual int putc(char);
         virtual int getc();

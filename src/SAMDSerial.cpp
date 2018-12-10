@@ -19,20 +19,35 @@ using namespace codal;
 
 #define CURRENT_USART ((Sercom*)(USART_INSTANCE.hw))
 
+static SAMDSerial* instances[SERCOM_INST_NUM] = { 0 };
+
 static void tx_callback(struct ::_usart_async_device* dev)
 {
-
+    // DMESG("TXD");
+    for (int i = 0; i < SERCOM_INST_NUM; i++)
+    {
+        if (instances[i] && dev == &instances[i]->USART_INSTANCE)
+        {
+            instances[i]->dataTransmitted();
+            return;
+        }
+    }
 }
 
-static void rx_callback(struct ::_usart_async_device* dev)
+static void rx_callback(struct ::_usart_async_device* dev, uint8_t data)
 {
-
+    // DMESG("RXD %d",data);
+    for (int i = 0; i < SERCOM_INST_NUM; i++)
+    {
+        if (instances[i] && dev == &instances[i]->USART_INSTANCE)
+            instances[i]->dataReceived(data);
+    }
 }
 
 int SAMDSerial::putc(char c)
 {
-    CURRENT_USART->USART.DATA.reg = c;
     while(!(CURRENT_USART->USART.INTFLAG.bit.DRE));
+    CURRENT_USART->USART.DATA.reg = c;
     return DEVICE_OK;
 }
 
@@ -48,22 +63,25 @@ int SAMDSerial::getc()
 
 int SAMDSerial::enableInterrupt(SerialInterruptType t)
 {
-    // if (t == RxInterrupt)
-    //     usart_async_register_callback(&USART_INSTANCE, USART_ASYNC_RXC_CB, rx_callback);
+    // DMESG("INT EN: %d",t);
+    if (t == RxInterrupt)
+        _usart_async_set_irq_state(&USART_INSTANCE, USART_ASYNC_RX_DONE, true);
 
-    // if (t == TxInterrupt)
-    //     usart_async_register_callback(&USART_INSTANCE, USART_ASYNC_TXC_CB, tx_callback);
+    if (t == TxInterrupt)
+        _usart_async_set_irq_state(&USART_INSTANCE, USART_ASYNC_BYTE_SENT, true);
 
     return DEVICE_OK;
 }
 
 int SAMDSerial::disableInterrupt(SerialInterruptType t)
 {
-    // if (t == RxInterrupt)
-    //     // usart_async_register_callback(&USART_INSTANCE, USART_ASYNC_RXC_CB, rx_callback);
+    // DMESG("INT DIS: %d", t);
+    if (t == RxInterrupt)
+        _usart_async_set_irq_state(&USART_INSTANCE, USART_ASYNC_RX_DONE, false);
 
-    // if (t == TxInterrupt)
-    //     usart_async_register_callback(&USART_INSTANCE, USART_ASYNC_TXC_CB, tx_callback);
+    if (t == TxInterrupt)
+        _usart_async_set_irq_state(&USART_INSTANCE, USART_ASYNC_BYTE_SENT, false);
+
     return DEVICE_OK;
 }
 
@@ -142,7 +160,7 @@ void SAMDSerial::enablePins(Pin& tx, Pin& rx)
     CURRENT_USART->USART.CTRLB.bit.RXEN = 1;
     while(CURRENT_USART->USART.SYNCBUSY.bit.CTRLB);
 
-    DMESG("INST: %d TX: %s %d %d, RX: %d %d %d", this->instance_number, tx.name, tx_pinmux, tx_pad, rx.name, rx_pinmux, rx_pad);
+    // DMESG("INST: %d TX: %s %d %d, RX: %d %d %d", this->instance_number, tx.name, tx_pinmux, tx_pad, rx.name, rx_pinmux, rx_pad);
 }
 
 int SAMDSerial::configurePins(Pin& tx, Pin& rx)
@@ -162,12 +180,19 @@ int SAMDSerial::configurePins(Pin& tx, Pin& rx)
         // come from ctor, don't deinit
         if (oldInstanceNumber != 255)
         {
+            instances[oldInstanceNumber] = NULL;
             disableInterrupt(RxInterrupt);
             disableInterrupt(TxInterrupt);
             _usart_async_deinit(&USART_INSTANCE);
         }
 
         _usart_async_init(&USART_INSTANCE, instance);
+
+        USART_INSTANCE.usart_cb.rx_done_cb = rx_callback;
+        USART_INSTANCE.usart_cb.tx_byte_sent = tx_callback;
+        USART_INSTANCE.usart_cb.tx_done_cb = tx_callback;
+
+        instances[instance_number] = this;
     }
 
     enablePins(tx, rx);
