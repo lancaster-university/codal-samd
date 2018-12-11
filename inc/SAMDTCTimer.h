@@ -6,21 +6,16 @@
 namespace codal
 {
 
-struct TCTimerStruct
-{
-    Tc* tc;
-    int countReg;
-}
-
 class SAMDTCTimer : public LowLevelTimer
 {
-    Tc* tc;
     uint8_t irqN;
-    TimerBitMode bm;
 
     public:
 
-    SAMDTCTimer(Tc* tc);
+    TimerBitMode bm;
+    Tc* tc;
+
+    SAMDTCTimer(Tc* tc, uint8_t irqN);
 
     virtual int enable();
 
