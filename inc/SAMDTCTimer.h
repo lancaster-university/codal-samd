@@ -33,7 +33,7 @@ class SAMDTCTimer : public LowLevelTimer
 
     virtual uint32_t captureCounter(uint8_t channel);
 
-    virtual int setPrescaler(uint16_t prescaleValue);
+    virtual int setClockSpeed(uint32_t speedKHz);
 
     virtual int setBitMode(TimerBitMode t);
 };

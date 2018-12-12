@@ -8,42 +8,72 @@ extern "C"
     #include "timers.h"
 }
 
+#define PRESCALE_VALUE_MAX          8
+
+const static uint16_t prescalerDivison[PRESCALE_VALUE_MAX] = { 1, 2, 4, 8, 16, 64, 256, 1024};
+
 using namespace codal;
 
 static SAMDTCTimer *instances[TC_INST_NUM] = { 0 };
 
 void tc_irq_handler(uint8_t index)
 {
+    DMESG("H");
     if (instances[index] == NULL)
         return;
+    DMESG("IRQ");
+
+    uint8_t channels = 0;
 
     if (instances[index]->timer_pointer)
     {
-        if (instances[index]->tc->COUNT32.INTFLAG.bit.MC0 && instances[index]->tc->COUNT32.INTENSET.reg & (1 << TC_INTENSET_MC0_Pos))
+        switch (instances[index]->bm)
         {
-            switch (instances[index]->bm)
-            {
-                case BitMode8:
+            case BitMode8:
+                if (instances[index]->tc->COUNT8.INTFLAG.bit.MC0 && instances[index]->tc->COUNT8.INTENSET.reg & (1 << TC_INTENSET_MC0_Pos))
+                {
                     instances[index]->tc->COUNT8.INTFLAG.bit.MC0 = 1;
-                    break;
-                case BitMode16:
+                    channels |= (1 << 0);
+                }
+
+                if (instances[index]->tc->COUNT8.INTFLAG.bit.MC1 && instances[index]->tc->COUNT8.INTENSET.reg & (1 << TC_INTENSET_MC1_Pos))
+                {
+                    instances[index]->tc->COUNT8.INTFLAG.bit.MC1 = 1;
+                    channels |= (1 << 1);
+                }
+                break;
+            case BitMode16:
+                if (instances[index]->tc->COUNT16.INTFLAG.bit.MC0 && instances[index]->tc->COUNT16.INTENSET.reg & (1 << TC_INTENSET_MC0_Pos))
+                {
                     instances[index]->tc->COUNT16.INTFLAG.bit.MC0 = 1;
-                    break;
-                case BitMode24:
-                    // Take a break compiler...
-                    break;
-                case BitMode32:
+                    channels |= (1 << 0);
+                }
+
+                if (instances[index]->tc->COUNT16.INTFLAG.bit.MC1 && instances[index]->tc->COUNT16.INTENSET.reg & (1 << TC_INTENSET_MC1_Pos))
+                {
+                    instances[index]->tc->COUNT16.INTFLAG.bit.MC1 = 1;
+                    channels |= (1 << 1);
+                }
+                break;
+            case BitMode24:
+                // Take a break compiler...
+                break;
+            case BitMode32:
+                if (instances[index]->tc->COUNT32.INTFLAG.bit.MC0 && instances[index]->tc->COUNT32.INTENSET.reg & (1 << TC_INTENSET_MC0_Pos))
+                {
                     instances[index]->tc->COUNT32.INTFLAG.bit.MC0 = 1;
-                    break;
-            }
-            instances[index]->timer_pointer(0);
+                    channels |= (1 << 0);
+                }
+
+                if (instances[index]->tc->COUNT32.INTFLAG.bit.MC1 && instances[index]->tc->COUNT32.INTENSET.reg & (1 << TC_INTENSET_MC1_Pos))
+                {
+                    instances[index]->tc->COUNT32.INTFLAG.bit.MC1 = 1;
+                    channels |= (1 << 1);
+                }
+                break;
         }
 
-        if (instances[index]->tc->COUNT32.INTFLAG.bit.MC1 && instances[index]->tc->COUNT32.INTENSET.reg & (1 << TC_INTENSET_MC1_Pos))
-        {
-            instances[index]->tc->COUNT32.INTFLAG.bit.MC1 = 1;
-            instances[index]->timer_pointer(1);
-        }
+        instances[index]->timer_pointer(channels);
     }
 }
 
@@ -67,6 +97,7 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
     }
 
     CODAL_ASSERT(tc_index < TC_INST_NUM);
+    // we should do a singleton here...
     CODAL_ASSERT(instances[tc_index] == NULL);
 
     DMESG("tc_ind: %d clk_index: %d", tc_index, CLK_GEN_8MHZ);
@@ -84,7 +115,12 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
             inited = true;
 
     if (!inited)
+    {
+        DMESG("SET APP");
         tc_set_app_handler(tc_irq_handler);
+    }
+
+    instances[tc_index] = this;
 
     setBitMode(BitMode32);
 
@@ -114,7 +150,8 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
             break;
     }
 
-    setPrescaler(3);
+    // 1000 khz == 1 mhz
+    setClockSpeed(1000);
 }
 
 int SAMDTCTimer::enable()
@@ -172,6 +209,7 @@ int SAMDTCTimer::setMode(TimerMode t)
 
 int SAMDTCTimer::setCompare(uint8_t channel, uint32_t value)
 {
+    DMESG("SET");
     if (channel > getChannelCount())
         return DEVICE_INVALID_PARAMETER;
 
@@ -207,6 +245,8 @@ int SAMDTCTimer::setCompare(uint8_t channel, uint32_t value)
             tc->COUNT32.INTENSET.reg = (1 << (TC_INTENSET_MC0_Pos + channel));
             break;
     }
+
+    DMESG("SET AF");
     return DEVICE_OK;
 }
 
@@ -339,11 +379,27 @@ uint32_t SAMDTCTimer::captureCounter(uint8_t)
     return elapsed;
 }
 
-int SAMDTCTimer::setPrescaler(uint16_t prescaleValue)
+int SAMDTCTimer::setClockSpeed(uint32_t speedKHz)
 {
-    if (prescaleValue > 0x7)
+    // 8000 khz
+    // TODO: Reconfigure clocks if resolution is greater than 8khz
+    if (speedKHz > 8000)
         return DEVICE_INVALID_PARAMETER;
 
+    // clock is 8khz
+    uint32_t clockSpeed = 8000;
+    uint8_t prescaleValue = 0;
+
+    // snap to the lowest
+    for (prescaleValue = 0; prescaleValue < PRESCALE_VALUE_MAX; prescaleValue++)
+    {
+        if (speedKHz < (clockSpeed / prescalerDivison[prescaleValue]))
+            continue;
+
+        break;
+    }
+
+    // set prescaler
     switch (bm)
     {
         case BitMode8:
