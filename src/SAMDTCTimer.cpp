@@ -23,7 +23,7 @@ void tc_irq_handler(uint8_t index)
         return;
     DMESG("IRQ");
 
-    uint8_t channels = 0;
+    uint16_t channel_bitmsk = 0;
 
     if (instances[index]->timer_pointer)
     {
@@ -33,26 +33,26 @@ void tc_irq_handler(uint8_t index)
                 if (instances[index]->tc->COUNT8.INTFLAG.bit.MC0 && instances[index]->tc->COUNT8.INTENSET.reg & (1 << TC_INTENSET_MC0_Pos))
                 {
                     instances[index]->tc->COUNT8.INTFLAG.bit.MC0 = 1;
-                    channels |= (1 << 0);
+                    channel_bitmsk |= (1 << 0);
                 }
 
                 if (instances[index]->tc->COUNT8.INTFLAG.bit.MC1 && instances[index]->tc->COUNT8.INTENSET.reg & (1 << TC_INTENSET_MC1_Pos))
                 {
                     instances[index]->tc->COUNT8.INTFLAG.bit.MC1 = 1;
-                    channels |= (1 << 1);
+                    channel_bitmsk |= (1 << 1);
                 }
                 break;
             case BitMode16:
                 if (instances[index]->tc->COUNT16.INTFLAG.bit.MC0 && instances[index]->tc->COUNT16.INTENSET.reg & (1 << TC_INTENSET_MC0_Pos))
                 {
                     instances[index]->tc->COUNT16.INTFLAG.bit.MC0 = 1;
-                    channels |= (1 << 0);
+                    channel_bitmsk |= (1 << 0);
                 }
 
                 if (instances[index]->tc->COUNT16.INTFLAG.bit.MC1 && instances[index]->tc->COUNT16.INTENSET.reg & (1 << TC_INTENSET_MC1_Pos))
                 {
                     instances[index]->tc->COUNT16.INTFLAG.bit.MC1 = 1;
-                    channels |= (1 << 1);
+                    channel_bitmsk |= (1 << 1);
                 }
                 break;
             case BitMode24:
@@ -62,18 +62,18 @@ void tc_irq_handler(uint8_t index)
                 if (instances[index]->tc->COUNT32.INTFLAG.bit.MC0 && instances[index]->tc->COUNT32.INTENSET.reg & (1 << TC_INTENSET_MC0_Pos))
                 {
                     instances[index]->tc->COUNT32.INTFLAG.bit.MC0 = 1;
-                    channels |= (1 << 0);
+                    channel_bitmsk |= (1 << 0);
                 }
 
                 if (instances[index]->tc->COUNT32.INTFLAG.bit.MC1 && instances[index]->tc->COUNT32.INTENSET.reg & (1 << TC_INTENSET_MC1_Pos))
                 {
                     instances[index]->tc->COUNT32.INTFLAG.bit.MC1 = 1;
-                    channels |= (1 << 1);
+                    channel_bitmsk |= (1 << 1);
                 }
                 break;
         }
 
-        instances[index]->timer_pointer(channels);
+        instances[index]->timer_pointer(channel_bitmsk);
     }
 }
 
