@@ -12,9 +12,9 @@ extern "C"
     #define SAMD_SYNC_BUSY_16() while (tc->COUNT16.STATUS.bit.SYNCBUSY)
     #define SAMD_SYNC_BUSY_32() while (tc->COUNT32.STATUS.bit.SYNCBUSY)
 #else
-    #define SAMD_SYNC_BUSY_8 ()
-    #define SAMD_SYNC_BUSY_16 ()
-    #define SAMD_SYNC_BUSY_32 ()
+    #define SAMD_SYNC_BUSY_8() ((void)0)
+    #define SAMD_SYNC_BUSY_16() ((void)0)
+    #define SAMD_SYNC_BUSY_32() ((void)0)
 #endif
 
 #define PRESCALE_VALUE_MAX          8
