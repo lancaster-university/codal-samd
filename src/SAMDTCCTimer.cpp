@@ -222,8 +222,8 @@ int SAMDTCCTimer::clearCompare(uint8_t channel)
         return DEVICE_INVALID_PARAMETER;
 
     // add channel to MC0, MC0 is 4, MC1 is 5
-    tcc->INTENCLR.reg = (1 << (TCC_INTENCLR_MC0_Pos + channel));
     setCompare(channel, 0);
+    tcc->INTENCLR.reg = (1 << (TCC_INTENCLR_MC0_Pos + channel));
 
     return DEVICE_OK;
 }

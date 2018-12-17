@@ -84,7 +84,6 @@ void tc_irq_handler(uint8_t index)
     }
 }
 
-
 SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
 {
     // TODO: neaten up constructor, look up tc and irqn given tc number.
@@ -109,11 +108,14 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
 
     DMESG("tc_ind: %d clk_index: %d", tc_index, CLK_GEN_8MHZ);
 
+    // 32 bit mode does not work, but don't have the time to figure out why
+    // I think i've tracked it down to TC1 (slave to TC0) not being enabled.
     // configure the clks for the current timer.
     turn_on_clocks(true, tc_index, CLK_GEN_8MHZ);
 
     // disable the timer
     disable();
+    tc_reset(tc);
 
     bool inited = false;
 
@@ -126,7 +128,7 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
 
     instances[tc_index] = this;
 
-    setBitMode(BitMode32);
+    setBitMode(BitMode16);
 
     // configure
     switch (bitMode)
@@ -288,6 +290,8 @@ int SAMDTCTimer::clearCompare(uint8_t channel)
     if (channel > getChannelCount())
         return DEVICE_INVALID_PARAMETER;
 
+    setCompare(channel, 0);
+
     switch (bitMode)
     {
         case BitMode8:
@@ -367,7 +371,7 @@ uint32_t SAMDTCTimer::captureCounter()
     #error TC sync needs to be implemented
 #endif
 
-    NVIC_DisableIRQ((IRQn_Type)this->irqN);
+    NVIC_EnableIRQ((IRQn_Type)this->irqN);
     return elapsed;
 }
 
