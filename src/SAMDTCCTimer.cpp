@@ -72,7 +72,7 @@ SAMDTCCTimer::SAMDTCCTimer(Tcc* tcc, uint8_t irqn) : LowLevelTimer(4)
         tcc_index++;
     }
 
-    CODAL_ASSERT(tcc_index < TC_INST_NUM);
+    CODAL_ASSERT(tcc_index < TCC_INST_NUM);
     // we should do a singleton here...
     CODAL_ASSERT(instances[tcc_index] == NULL);
 
@@ -86,7 +86,7 @@ SAMDTCCTimer::SAMDTCCTimer(Tcc* tcc, uint8_t irqn) : LowLevelTimer(4)
 
     bool inited = false;
 
-    for (int index = 0; index < TC_INST_NUM; index++)
+    for (int index = 0; index < TCC_INST_NUM; index++)
         if (instances[index])
             inited = true;
 
