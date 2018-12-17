@@ -17,7 +17,11 @@ class SAMDTCCTimer : public LowLevelTimer
 
     virtual int enable();
 
+    virtual int enableIRQ();
+
     virtual int disable();
+
+    virtual int disableIRQ();
 
     virtual int reset();
 
@@ -29,7 +33,7 @@ class SAMDTCCTimer : public LowLevelTimer
 
     virtual int clearCompare(uint8_t channel);
 
-    virtual uint32_t captureCounter(uint8_t channel);
+    virtual uint32_t captureCounter();
 
     virtual int setClockSpeed(uint32_t speedKHz);
 

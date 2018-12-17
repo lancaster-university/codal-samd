@@ -98,7 +98,7 @@ SAMDTCCTimer::SAMDTCCTimer(Tcc* tcc, uint8_t irqn) : LowLevelTimer(4)
 
     instances[tcc_index] = this;
 
-    setBitMode(BitMode32);
+    setBitMode(BitMode24);
 
     tcc->CTRLBCLR.bit.DIR = 1; // count up
 #ifdef SAMD21
@@ -113,15 +113,27 @@ int SAMDTCCTimer::enable()
 {
     NVIC_SetPriority((IRQn_Type)this->irqN, 2);
     NVIC_ClearPendingIRQ((IRQn_Type)this->irqN);
-    NVIC_EnableIRQ((IRQn_Type)this->irqN);
+    enableIRQ();
     tcc_set_enable(tcc, true);
+    return DEVICE_OK;
+}
+
+int SAMDTCCTimer::enableIRQ()
+{
+    NVIC_EnableIRQ((IRQn_Type)this->irqN);
     return DEVICE_OK;
 }
 
 int SAMDTCCTimer::disable()
 {
-    NVIC_DisableIRQ((IRQn_Type)this->irqN);
+    disableIRQ();
     tcc_set_enable(tcc, false);
+    return DEVICE_OK;
+}
+
+int SAMDTCCTimer::disableIRQ()
+{
+    NVIC_DisableIRQ((IRQn_Type)this->irqN);
     return DEVICE_OK;
 }
 
@@ -215,7 +227,7 @@ int SAMDTCCTimer::clearCompare(uint8_t channel)
     return DEVICE_OK;
 }
 
-uint32_t SAMDTCCTimer::captureCounter(uint8_t)
+uint32_t SAMDTCCTimer::captureCounter()
 {
     uint32_t elapsed = 0;
 
@@ -264,5 +276,6 @@ int SAMDTCCTimer::setClockSpeed(uint32_t speedKHz)
 
 int SAMDTCCTimer::setBitMode(TimerBitMode t)
 {
+    bitMode = t;
     return DEVICE_NOT_IMPLEMENTED;
 }

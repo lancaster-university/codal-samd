@@ -27,7 +27,7 @@ void tc_irq_handler(uint8_t index)
 
     if (instances[index]->timer_pointer)
     {
-        switch (instances[index]->bm)
+        switch (instances[index]->getBitMode())
         {
             case BitMode8:
                 if (instances[index]->tc->COUNT8.INTFLAG.bit.MC0 && instances[index]->tc->COUNT8.INTENSET.reg & (1 << TC_INTENSET_MC0_Pos))
@@ -125,7 +125,7 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
     setBitMode(BitMode32);
 
     // configure
-    switch (bm)
+    switch (bitMode)
     {
         case BitMode8:
             tc->COUNT8.CTRLBCLR.bit.DIR = 1; // count up
@@ -158,22 +158,34 @@ int SAMDTCTimer::enable()
 {
     NVIC_SetPriority((IRQn_Type)this->irqN, 2);
     NVIC_ClearPendingIRQ((IRQn_Type)this->irqN);
-    NVIC_EnableIRQ((IRQn_Type)this->irqN);
+    enableIRQ();
     tc_set_enable(tc, true);
+    return DEVICE_OK;
+}
+
+int SAMDTCTimer::enableIRQ()
+{
+    NVIC_EnableIRQ((IRQn_Type)this->irqN);
     return DEVICE_OK;
 }
 
 int SAMDTCTimer::disable()
 {
-    NVIC_DisableIRQ((IRQn_Type)this->irqN);
+    disableIRQ();
     tc_set_enable(tc, false);
+    return DEVICE_OK;
+}
+
+int SAMDTCTimer::disableIRQ()
+{
+    NVIC_DisableIRQ((IRQn_Type)this->irqN);
     return DEVICE_OK;
 }
 
 int SAMDTCTimer::reset()
 {
     NVIC_DisableIRQ((IRQn_Type)this->irqN);
-    switch (bm)
+    switch (bitMode)
     {
         case BitMode8:
             tc->COUNT8.COUNT.reg = 0;
@@ -213,7 +225,7 @@ int SAMDTCTimer::setCompare(uint8_t channel, uint32_t value)
     if (channel > getChannelCount())
         return DEVICE_INVALID_PARAMETER;
 
-    switch (bm)
+    switch (bitMode)
     {
         case BitMode8:
             tc->COUNT8.CC[channel].reg = value;
@@ -255,7 +267,7 @@ int SAMDTCTimer::offsetCompare(uint8_t channel, uint32_t value)
     if (channel > getChannelCount())
         return DEVICE_INVALID_PARAMETER;
 
-    switch (bm)
+    switch (bitMode)
     {
         case BitMode8:
             tc->COUNT8.CC[channel].reg += value;
@@ -296,7 +308,7 @@ int SAMDTCTimer::clearCompare(uint8_t channel)
     if (channel > getChannelCount())
         return DEVICE_INVALID_PARAMETER;
 
-    switch (bm)
+    switch (bitMode)
     {
         case BitMode8:
             // add channel to MC0, MC0 is 4, MC1 is 5
@@ -318,13 +330,13 @@ int SAMDTCTimer::clearCompare(uint8_t channel)
     return DEVICE_OK;
 }
 
-uint32_t SAMDTCTimer::captureCounter(uint8_t)
+uint32_t SAMDTCTimer::captureCounter()
 {
     uint32_t elapsed = 0;
 
     NVIC_DisableIRQ((IRQn_Type)this->irqN);
 #ifdef SAMD51
-    switch (bm)
+    switch (bitMode)
     {
         case BitMode8:
             tc->COUNT8.CTRLBSET.bit.CMD = 0x04;
@@ -347,7 +359,7 @@ uint32_t SAMDTCTimer::captureCounter(uint8_t)
     }
 #elif SAMD21
 
-    switch (bm)
+    switch (bitMode)
     {
         case BitMode8:
             tc->COUNT8.READREQ.bit.ADDR = 0x10;
@@ -400,7 +412,7 @@ int SAMDTCTimer::setClockSpeed(uint32_t speedKHz)
     }
 
     // set prescaler
-    switch (bm)
+    switch (bitMode)
     {
         case BitMode8:
             tc->COUNT8.CTRLA.bit.PRESCALER = prescaleValue;
@@ -436,7 +448,7 @@ int SAMDTCTimer::setBitMode(TimerBitMode t)
             break;
     }
 
-    bm = t;
+    bitMode = t;
 
     return DEVICE_OK;
 }
