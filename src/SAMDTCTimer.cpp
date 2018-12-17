@@ -1,12 +1,21 @@
 #include "SAMDTCTimer.h"
 #include "CodalDmesg.h"
 #include "sam.h"
-#include "SAMDTimer.h"
 extern "C"
 {
     #include "clocks.h"
     #include "timers.h"
 }
+
+#ifdef SAMD21
+    #define SAMD_SYNC_BUSY_8() while (tc->COUNT8.STATUS.bit.SYNCBUSY)
+    #define SAMD_SYNC_BUSY_16() while (tc->COUNT16.STATUS.bit.SYNCBUSY)
+    #define SAMD_SYNC_BUSY_32() while (tc->COUNT32.STATUS.bit.SYNCBUSY)
+#else
+    #define SAMD_SYNC_BUSY_8 ()
+    #define SAMD_SYNC_BUSY_16 ()
+    #define SAMD_SYNC_BUSY_32 ()
+#endif
 
 #define PRESCALE_VALUE_MAX          8
 
@@ -18,10 +27,8 @@ static SAMDTCTimer *instances[TC_INST_NUM] = { 0 };
 
 void tc_irq_handler(uint8_t index)
 {
-    DMESG("H");
     if (instances[index] == NULL)
         return;
-    DMESG("IRQ");
 
     uint16_t channel_bitmsk = 0;
 
@@ -115,10 +122,7 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
             inited = true;
 
     if (!inited)
-    {
-        DMESG("SET APP");
         tc_set_app_handler(tc_irq_handler);
-    }
 
     instances[tc_index] = this;
 
@@ -129,24 +133,18 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
     {
         case BitMode8:
             tc->COUNT8.CTRLBCLR.bit.DIR = 1; // count up
-#ifdef SAMD21
-            while (tc->COUNT8.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_8();
             break;
         case BitMode16:
             tc->COUNT16.CTRLBCLR.bit.DIR = 1; // count up
-#ifdef SAMD21
-            while (tc->COUNT16.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_16();
             break;
         case BitMode24:
             // make the compiler shut up
             break;
         case BitMode32:
             tc->COUNT32.CTRLBCLR.bit.DIR = 1; // count up
-#ifdef SAMD21
-            while (tc->COUNT32.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_32();
             break;
     }
 
@@ -189,24 +187,18 @@ int SAMDTCTimer::reset()
     {
         case BitMode8:
             tc->COUNT8.COUNT.reg = 0;
-#ifdef SAMD21
-            while (tc->COUNT8.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_8();
             break;
         case BitMode16:
             tc->COUNT16.COUNT.reg = 0;
-#ifdef SAMD21
-            while (tc->COUNT16.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_16();
             break;
         case BitMode24:
             // make the compiler shut up
             break;
         case BitMode32:
             tc->COUNT32.COUNT.reg = 0;
-#ifdef SAMD21
-            while (tc->COUNT32.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_32();
             break;
     }
     NVIC_EnableIRQ((IRQn_Type)this->irqN);
@@ -221,7 +213,6 @@ int SAMDTCTimer::setMode(TimerMode t)
 
 int SAMDTCTimer::setCompare(uint8_t channel, uint32_t value)
 {
-    DMESG("SET");
     if (channel > getChannelCount())
         return DEVICE_INVALID_PARAMETER;
 
@@ -229,17 +220,14 @@ int SAMDTCTimer::setCompare(uint8_t channel, uint32_t value)
     {
         case BitMode8:
             tc->COUNT8.CC[channel].reg = value;
-#ifdef SAMD21
-            while (tc->COUNT8.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_8();
+
             // add channel to MC0, MC0 is 4, MC1 is 5
             tc->COUNT8.INTENSET.reg = (1 << (TC_INTENSET_MC0_Pos + channel));
             break;
         case BitMode16:
             tc->COUNT16.CC[channel].reg = value;
-#ifdef SAMD21
-            while (tc->COUNT16.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_16();
 
             // add channel to MC0, MC0 is 4, MC1 is 5
             tc->COUNT16.INTENSET.reg = (1 << (TC_INTENSET_MC0_Pos + channel));
@@ -249,16 +237,13 @@ int SAMDTCTimer::setCompare(uint8_t channel, uint32_t value)
             break;
         case BitMode32:
             tc->COUNT32.CC[channel].reg = value;
-#ifdef SAMD21
-            while (tc->COUNT32.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_32();
 
             // add channel to MC0, MC0 is 4, MC1 is 5
             tc->COUNT32.INTENSET.reg = (1 << (TC_INTENSET_MC0_Pos + channel));
             break;
     }
 
-    DMESG("SET AF");
     return DEVICE_OK;
 }
 
@@ -271,17 +256,14 @@ int SAMDTCTimer::offsetCompare(uint8_t channel, uint32_t value)
     {
         case BitMode8:
             tc->COUNT8.CC[channel].reg += value;
-#ifdef SAMD21
-            while (tc->COUNT8.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_8();
+
             // add channel to MC0, MC0 is 4, MC1 is 5
             tc->COUNT8.INTENSET.reg = (1 << (TC_INTENSET_MC0_Pos + channel));
             break;
         case BitMode16:
             tc->COUNT16.CC[channel].reg += value;
-#ifdef SAMD21
-            while (tc->COUNT16.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_16();
 
             // add channel to MC0, MC0 is 4, MC1 is 5
             tc->COUNT16.INTENSET.reg = (1 << (TC_INTENSET_MC0_Pos + channel));
@@ -291,9 +273,7 @@ int SAMDTCTimer::offsetCompare(uint8_t channel, uint32_t value)
             break;
         case BitMode32:
             tc->COUNT32.CC[channel].reg += value;
-#ifdef SAMD21
-            while (tc->COUNT32.STATUS.bit.SYNCBUSY);
-#endif
+            SAMD_SYNC_BUSY_32();
 
             // add channel to MC0, MC0 is 4, MC1 is 5
             tc->COUNT32.INTENSET.reg = (1 << (TC_INTENSET_MC0_Pos + channel));
@@ -364,13 +344,13 @@ uint32_t SAMDTCTimer::captureCounter()
         case BitMode8:
             tc->COUNT8.READREQ.bit.ADDR = 0x10;
             tc->COUNT8.READREQ.bit.RREQ = 1;
-            while (tc->COUNT8.STATUS.bit.SYNCBUSY);
+            SAMD_SYNC_BUSY_8();
             elapsed = tc->COUNT8.COUNT.reg;
             break;
         case BitMode16:
             tc->COUNT16.READREQ.bit.ADDR = 0x10;
             tc->COUNT16.READREQ.bit.RREQ = 1;
-            while (tc->COUNT16.STATUS.bit.SYNCBUSY);
+            SAMD_SYNC_BUSY_16();
             elapsed = tc->COUNT16.COUNT.reg;
             break;
         case BitMode24:
@@ -379,7 +359,7 @@ uint32_t SAMDTCTimer::captureCounter()
         case BitMode32:
             tc->COUNT32.READREQ.bit.ADDR = 0x10;
             tc->COUNT32.READREQ.bit.RREQ = 1;
-            while (tc->COUNT32.STATUS.bit.SYNCBUSY);
+            SAMD_SYNC_BUSY_32();
             elapsed = tc->COUNT32.COUNT.reg;
             break;
     }

@@ -1,12 +1,12 @@
 #include "SAMDTCCTimer.h"
 #include "CodalDmesg.h"
 #include "sam.h"
-#include "SAMDTimer.h"
 extern "C"
 {
     #include "clocks.h"
     #include "timers.h"
 }
+
 
 #define PRESCALE_VALUE_MAX          8
 

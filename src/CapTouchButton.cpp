@@ -34,7 +34,6 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalDmesg.h"
 #include "CapTouchButton.h"
 #include "EventModel.h"
-#include "SAMDTimer.h"
 #include <hpl_pm_base.h>
 
 #ifdef SAMD21

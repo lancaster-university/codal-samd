@@ -26,7 +26,6 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalCompat.h"
 #include "SAMDPDM.h"
 #include "Pin.h"
-#include "SAMDTimer.h"
 #include "CodalDmesg.h"
 
 extern "C"
