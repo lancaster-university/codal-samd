@@ -22,6 +22,10 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
+#include "sam.h"
+
+#ifdef I2S
+
 #include "Event.h"
 #include "CodalCompat.h"
 #include "SAMDPDM.h"
@@ -317,3 +321,4 @@ void SAMD21PDM::startDMA()
     // Access the Data buffer once, to ensure we don't miss a DMA trigger...
     I2S->DATAREG.reg = I2S->DATAREG.reg;
 }
+#endif
