@@ -175,10 +175,12 @@ void usb_set_address(uint16_t wValue)
 int UsbEndpointIn::clearStall()
 {
     DMESG("clear stall IN %d", ep);
-	if (USB->DEVICE.DeviceEndpoint[ep].EPSTATUS.reg & USB_DEVICE_EPSTATUSSET_STALLRQ1) {
+    if (USB->DEVICE.DeviceEndpoint[ep].EPSTATUS.reg & USB_DEVICE_EPSTATUSSET_STALLRQ1)
+    {
         // Remove stall request
         USB->DEVICE.DeviceEndpoint[ep].EPSTATUSCLR.reg = USB_DEVICE_EPSTATUSCLR_STALLRQ1;
-        if (USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg & USB_DEVICE_EPINTFLAG_STALL1) {
+        if (USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg & USB_DEVICE_EPINTFLAG_STALL1)
+        {
             USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg = USB_DEVICE_EPINTFLAG_STALL1;
             // The Stall has occurred, then reset data toggle
             USB->DEVICE.DeviceEndpoint[ep].EPSTATUSCLR.reg = USB_DEVICE_EPSTATUSSET_DTGLIN;
@@ -208,10 +210,12 @@ int UsbEndpointIn::stall()
 int UsbEndpointOut::clearStall()
 {
     DMESG("clear stall OUT %d", ep);
-	if (USB->DEVICE.DeviceEndpoint[ep].EPSTATUS.reg & USB_DEVICE_EPSTATUSSET_STALLRQ0) {
+    if (USB->DEVICE.DeviceEndpoint[ep].EPSTATUS.reg & USB_DEVICE_EPSTATUSSET_STALLRQ0)
+    {
         // Remove stall request
         USB->DEVICE.DeviceEndpoint[ep].EPSTATUSCLR.reg = USB_DEVICE_EPSTATUSCLR_STALLRQ0;
-        if (USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg & USB_DEVICE_EPINTFLAG_STALL0) {
+        if (USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg & USB_DEVICE_EPINTFLAG_STALL0)
+        {
             USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg = USB_DEVICE_EPINTFLAG_STALL0;
             // The Stall has occurred, then reset data toggle
             USB->DEVICE.DeviceEndpoint[ep].EPSTATUSCLR.reg = USB_DEVICE_EPSTATUSSET_DTGLOUT;
@@ -286,16 +290,14 @@ UsbEndpointOut::UsbEndpointOut(uint8_t idx, uint8_t type, uint8_t size)
 int UsbEndpointOut::disableIRQ()
 {
     USB->DEVICE.DeviceEndpoint[ep].EPINTENCLR.reg =
-        ep == 0 ? USB_DEVICE_EPINTENCLR_RXSTP
-                : USB_DEVICE_EPINTENCLR_TRCPT0;
+        ep == 0 ? USB_DEVICE_EPINTENCLR_RXSTP : USB_DEVICE_EPINTENCLR_TRCPT0;
     return DEVICE_OK;
 }
 
 int UsbEndpointOut::enableIRQ()
 {
     USB->DEVICE.DeviceEndpoint[ep].EPINTENSET.reg =
-        ep == 0 ? USB_DEVICE_EPINTENSET_RXSTP
-                : USB_DEVICE_EPINTENSET_TRCPT0;
+        ep == 0 ? USB_DEVICE_EPINTENSET_RXSTP : USB_DEVICE_EPINTENSET_TRCPT0;
     return DEVICE_OK;
 }
 
@@ -369,9 +371,11 @@ int UsbEndpointIn::write(const void *src, int len)
 
     if (wLength)
     {
-        if (len >= wLength) {
+        if (len >= wLength)
+        {
             len = wLength;
-            // see https://stackoverflow.com/questions/3739901/when-do-usb-hosts-require-a-zero-length-in-packet-at-the-end-of-a-control-read-t
+            // see
+            // https://stackoverflow.com/questions/3739901/when-do-usb-hosts-require-a-zero-length-in-packet-at-the-end-of-a-control-read-t
             zlp = 0;
         }
         wLength = 0;
@@ -396,7 +400,8 @@ int UsbEndpointIn::write(const void *src, int len)
 
     // It seems AUTO_ZLP has issues with 64 byte control endpoints.
     // We just send ZLP manually if needed.
-    if (zlp && len && (len & (epSize - 1)) == 0) {
+    if (zlp && len && (len & (epSize - 1)) == 0)
+    {
         writeEP(epdesc, ep, 0);
     }
 
