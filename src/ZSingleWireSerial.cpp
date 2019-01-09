@@ -50,17 +50,31 @@ void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
 void ZSingleWireSerial::configureRxInterrupt(int enable)
 {
 }
-// sws(io.a4, SERCOM0, 0, PINMUX_PA04D_SERCOM0_PAD0, 0),
+
 ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 {
     const mcu_pin_obj_t* single_wire_pin = samd_peripherals_get_pin(p.name);
 
-    if (single_wire_pin->sercom[0].index != 0x3f && single_wire_pin->sercom[0].pad == 0)
+    if (single_wire_pin->sercom[0].index != 0x3f &&
+        (
+            single_wire_pin->sercom[0].pad == 0
+#ifdef SAMD21
+            || single_wire_pin->sercom[0].pad == 2
+#endif
+        )
+    )
     {
         this->pinmux = MUX_C; // c
         this->instance_number = single_wire_pin->sercom[0].index;
     }
-    else if (single_wire_pin->sercom[1].index != 0x3f && single_wire_pin->sercom[1].pad == 0)
+    else if (single_wire_pin->sercom[1].index != 0x3f &&
+        (
+            single_wire_pin->sercom[1].pad == 0
+#ifdef SAMD21
+            || single_wire_pin->sercom[1].pad == 2
+#endif
+        )
+    )
     {
         this->pinmux = MUX_D; // d
         this->instance_number = single_wire_pin->sercom[1].index;

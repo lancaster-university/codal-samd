@@ -99,13 +99,27 @@ void SAMDSerial::setSercomInstanceValues(Pin& tx, Pin& rx)
     const mcu_pin_obj_t* rx_pin = samd_peripherals_get_pin(rx.name);
 
     // UART can run on many pads, not just zero. This will need to change in the future.
-    if (tx_pin->sercom[0].index != 0x3f && tx_pin->sercom[0].pad == 0)
+    if (tx_pin->sercom[0].index != 0x3f &&
+        (
+            tx_pin->sercom[0].pad == 0
+#ifdef SAMD21
+            || tx_pin->sercom[0].pad == 2
+#endif
+        )
+    )
     {
         this->tx_pad = tx_pin->sercom[0].pad;
         this->tx_pinmux = MUX_C; // c
         this->instance_number = tx_pin->sercom[0].index;
     }
-    else if (tx_pin->sercom[1].index != 0x3f && tx_pin->sercom[1].pad == 0)
+    else if (tx_pin->sercom[1].index != 0x3f &&
+        (
+            tx_pin->sercom[1].pad == 0
+#ifdef SAMD21
+            || tx_pin->sercom[1].pad == 2
+#endif
+        )
+    )
     {
         this->tx_pad = tx_pin->sercom[1].pad;
         this->tx_pinmux = MUX_D; // d
