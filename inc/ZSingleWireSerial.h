@@ -26,6 +26,7 @@ namespace codal
         DmaInstance* usart_rx_dma;
         uint32_t pinmux;
         uint8_t instance_number;
+        uint8_t pad;
 
         protected:
         virtual void configureRxInterrupt(int enable);

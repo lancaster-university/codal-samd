@@ -64,6 +64,7 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
         )
     )
     {
+        this->pad = (single_wire_pin->sercom[0].pad == 2) ? 0x01 : 0x0;
         this->pinmux = MUX_C; // c
         this->instance_number = single_wire_pin->sercom[0].index;
     }
@@ -76,6 +77,7 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
         )
     )
     {
+        this->pad = (single_wire_pin->sercom[1].pad == 2) ? 0x01 : 0x0;
         this->pinmux = MUX_D; // d
         this->instance_number = single_wire_pin->sercom[1].index;
     }
@@ -152,7 +154,7 @@ int ZSingleWireSerial::configureTx(int enable)
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
         CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
-        CURRENT_USART->USART.CTRLA.bit.TXPO = 0;
+        CURRENT_USART->USART.CTRLA.bit.TXPO = this->pad;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0;
 
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 1;
@@ -187,7 +189,7 @@ int ZSingleWireSerial::configureRx(int enable)
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
         CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
-        CURRENT_USART->USART.CTRLA.bit.RXPO = 0;
+        CURRENT_USART->USART.CTRLA.bit.RXPO = this->pad;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0; // 8 BIT
 
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 1;

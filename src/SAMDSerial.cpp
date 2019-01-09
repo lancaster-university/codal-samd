@@ -108,7 +108,7 @@ void SAMDSerial::setSercomInstanceValues(Pin& tx, Pin& rx)
         )
     )
     {
-        this->tx_pad = tx_pin->sercom[0].pad;
+        this->tx_pad = (tx_pin->sercom[0].pad == 2) ? 0x01 : 0x0;
         this->tx_pinmux = MUX_C; // c
         this->instance_number = tx_pin->sercom[0].index;
     }
@@ -121,12 +121,14 @@ void SAMDSerial::setSercomInstanceValues(Pin& tx, Pin& rx)
         )
     )
     {
-        this->tx_pad = tx_pin->sercom[1].pad;
+        this->tx_pad = (tx_pin->sercom[1].pad == 2) ? 0x01 : 0x0;
         this->tx_pinmux = MUX_D; // d
         this->instance_number = tx_pin->sercom[1].index;
     }
     else
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
+
+    DMESG("TX pinmux: %d pad: %d inst: %d", this->tx_pinmux, this->tx_pad, this->instance_number);
 
     if (rx_pin->sercom[0].index == this->instance_number)
     {
@@ -141,6 +143,8 @@ void SAMDSerial::setSercomInstanceValues(Pin& tx, Pin& rx)
     }
     else
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
+
+    DMESG("RX pinmux: %d pad: %d inst: %d", this->rx_pinmux, this->rx_pad, this->instance_number);
 }
 
 void SAMDSerial::enablePins(Pin& tx, Pin& rx)
