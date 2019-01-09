@@ -138,7 +138,6 @@ void usb_configure(uint8_t numEndpoints)
     /* Attach to the USB host */
     USB->DEVICE.CTRLB.reg &= ~USB_DEVICE_CTRLB_DETACH;
 
-    USB->DEVICE.INTFLAG.reg = USB_DEVICE_INTFLAG_MASK;
     USB->DEVICE.INTENCLR.reg = USB_DEVICE_INTFLAG_MASK;
     USB->DEVICE.INTENSET.reg = USB_DEVICE_INTENSET_EORST;
 
@@ -158,7 +157,7 @@ extern "C" void USB_Handler(void)
 {
     CodalUSB *cusb = CodalUSB::usbInstance;
 
-#if 1
+#if 0
     DMESG("USB devint=%x ep0int=%x ep1int=%x", USB->DEVICE.INTFLAG.reg,
           USB->DEVICE.DeviceEndpoint[0].EPINTFLAG.reg, USB->DEVICE.DeviceEndpoint[1].EPINTFLAG.reg);
 #endif
