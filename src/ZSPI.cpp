@@ -78,6 +78,21 @@ void ZSPI::dmaTransferComplete(DmaCode)
     }
 }
 
+bool ZSPI::isValidMOSIPin(Pin &mosi)
+{
+    auto mosi_mcu = find_mcu_pin(mosi.name);
+    for (int i = 0; i < 4; ++i)
+    {
+        for (int sercom = 0; sercom < NUM_SERCOMS_PER_PIN; ++sercom)
+        {
+            if (mosi_mcu->sercom[sercom].index < 0x3f &&
+                samd_peripherals_get_spi_dopo(i, mosi_mcu->sercom[sercom].pad) <= 3)
+                return true;
+        }
+    }
+    return false;
+}
+
 void ZSPI::init()
 {
     if (!needsInit)
@@ -176,7 +191,8 @@ void ZSPI::init()
             }
 
 #define MUX(si) ((si == 0) ? MUX_C : MUX_D)
-            sclk->_setMux(MUX(sclk_si));
+            if (sclk)
+                sclk->_setMux(MUX(sclk_si));
 
             if (mosi)
                 mosi->_setMux(MUX(mosi_si));
