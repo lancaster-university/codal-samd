@@ -53,22 +53,42 @@ void usb_configure(uint8_t numEndpoints)
 
     uint32_t pad_transn, pad_transp, pad_trim;
 
-    /* Enable USB clock */
+/* Enable USB clock */
+#ifdef SAMD21
     PM->APBBMASK.reg |= PM_APBBMASK_USB;
+#define DM_PIN PIN_PA24G_USB_DM
+#define DM_MUX MUX_PA24G_USB_DM
+#define DP_PIN PIN_PA25G_USB_DP
+#define DP_MUX MUX_PA25G_USB_DP
+#endif
+#ifdef SAMD51
+#define DM_PIN PIN_PA24H_USB_DM
+#define DM_MUX MUX_PA24H_USB_DM
+#define DP_PIN PIN_PA25H_USB_DP
+#define DP_MUX MUX_PA25H_USB_DP
+#endif
 
     /* Set up the USB DP/DN pins */
-    PORT->Group[0].PINCFG[PIN_PA24G_USB_DM].bit.PMUXEN = 1;
-    PORT->Group[0].PMUX[PIN_PA24G_USB_DM / 2].reg &= ~(0xF << (4 * (PIN_PA24G_USB_DM & 0x01u)));
-    PORT->Group[0].PMUX[PIN_PA24G_USB_DM / 2].reg |= MUX_PA24G_USB_DM
-                                                     << (4 * (PIN_PA24G_USB_DM & 0x01u));
-    PORT->Group[0].PINCFG[PIN_PA25G_USB_DP].bit.PMUXEN = 1;
-    PORT->Group[0].PMUX[PIN_PA25G_USB_DP / 2].reg &= ~(0xF << (4 * (PIN_PA25G_USB_DP & 0x01u)));
-    PORT->Group[0].PMUX[PIN_PA25G_USB_DP / 2].reg |= MUX_PA25G_USB_DP
-                                                     << (4 * (PIN_PA25G_USB_DP & 0x01u));
+    PORT->Group[0].PINCFG[DM_PIN].bit.PMUXEN = 1;
+    PORT->Group[0].PMUX[DM_PIN / 2].reg &= ~(0xF << (4 * (DM_PIN & 0x01u)));
+    PORT->Group[0].PMUX[DM_PIN / 2].reg |= DM_MUX << (4 * (DM_PIN & 0x01u));
+    PORT->Group[0].PINCFG[DP_PIN].bit.PMUXEN = 1;
+    PORT->Group[0].PMUX[DP_PIN / 2].reg &= ~(0xF << (4 * (DP_PIN & 0x01u)));
+    PORT->Group[0].PMUX[DP_PIN / 2].reg |= DP_MUX << (4 * (DP_PIN & 0x01u));
 
+#ifdef SAMD21
     GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(6) | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
-    while (GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY)
+    while (GCLK->STATUS.bit.SYNCBUSY)
         ;
+#endif
+#ifdef SAMD51
+    GCLK->PCHCTRL[USB_GCLK_ID].reg = GCLK_PCHCTRL_GEN_GCLK0_Val | (1 << GCLK_PCHCTRL_CHEN_Pos);
+    MCLK->AHBMASK.bit.USB_ = true;
+    MCLK->APBBMASK.bit.USB_ = true;
+
+    while (GCLK->SYNCBUSY.bit.GENCTRL0)
+        ;
+#endif
 
     /* Reset */
     USB->HOST.CTRLA.bit.SWRST = 1;
@@ -78,9 +98,8 @@ void usb_configure(uint8_t numEndpoints)
     }
 
     /* Load Pad Calibration */
-    pad_transn = (*((uint32_t *)(NVMCTRL_OTP4) + (NVM_USB_PAD_TRANSN_POS / 32)) >>
-                  (NVM_USB_PAD_TRANSN_POS % 32)) &
-                 ((1 << NVM_USB_PAD_TRANSN_SIZE) - 1);
+    pad_transn =
+        ((*((uint32_t *)USB_FUSES_TRANSN_ADDR)) & USB_FUSES_TRANSN_Msk) >> USB_FUSES_TRANSN_Pos;
 
     if (pad_transn == 0x1F)
     {
@@ -89,9 +108,8 @@ void usb_configure(uint8_t numEndpoints)
 
     USB->HOST.PADCAL.bit.TRANSN = pad_transn;
 
-    pad_transp = (*((uint32_t *)(NVMCTRL_OTP4) + (NVM_USB_PAD_TRANSP_POS / 32)) >>
-                  (NVM_USB_PAD_TRANSP_POS % 32)) &
-                 ((1 << NVM_USB_PAD_TRANSP_SIZE) - 1);
+    pad_transp =
+        ((*((uint32_t *)USB_FUSES_TRANSP_ADDR)) & USB_FUSES_TRANSP_Msk) >> USB_FUSES_TRANSP_Pos;
 
     if (pad_transp == 0x1F)
     {
@@ -99,9 +117,7 @@ void usb_configure(uint8_t numEndpoints)
     }
 
     USB->HOST.PADCAL.bit.TRANSP = pad_transp;
-    pad_trim = (*((uint32_t *)(NVMCTRL_OTP4) + (NVM_USB_PAD_TRIM_POS / 32)) >>
-                (NVM_USB_PAD_TRIM_POS % 32)) &
-               ((1 << NVM_USB_PAD_TRIM_SIZE) - 1);
+    pad_trim = ((*((uint32_t *)USB_FUSES_TRIM_ADDR)) & USB_FUSES_TRIM_Msk) >> USB_FUSES_TRIM_Pos;
 
     if (pad_trim == 0x7)
     {
@@ -122,12 +138,17 @@ void usb_configure(uint8_t numEndpoints)
     /* Attach to the USB host */
     USB->DEVICE.CTRLB.reg &= ~USB_DEVICE_CTRLB_DETACH;
 
-    memset(usb_endpoints, 0, usb_num_endpoints * sizeof(UsbDeviceDescriptor));
-
     USB->DEVICE.INTENCLR.reg = USB_DEVICE_INTFLAG_MASK;
     USB->DEVICE.INTENSET.reg = USB_DEVICE_INTENSET_EORST;
 
+#ifdef SAMD51
+    NVIC_EnableIRQ(USB_0_IRQn);
+    NVIC_EnableIRQ(USB_1_IRQn);
+    NVIC_EnableIRQ(USB_2_IRQn);
+    NVIC_EnableIRQ(USB_3_IRQn);
+#else
     NVIC_EnableIRQ(USB_IRQn);
+#endif
 
     USB->HOST.CTRLA.bit.ENABLE = true;
 }
@@ -167,18 +188,45 @@ extern "C" void USB_Handler(void)
     cusb->interruptHandler();
 }
 
+#ifdef SAMD51
+extern "C" void USB_0_Handler(void)
+{
+    USB_Handler();
+}
+extern "C" void USB_1_Handler(void)
+{
+    USB_Handler();
+}
+extern "C" void USB_2_Handler(void)
+{
+    USB_Handler();
+}
+extern "C" void USB_3_Handler(void)
+{
+    USB_Handler();
+}
+#endif
+
 void usb_set_address(uint16_t wValue)
 {
     USB->DEVICE.DADD.reg = USB_DEVICE_DADD_ADDEN | wValue;
 }
 
+void usb_set_address_pre(uint16_t wValue)
+{
+    // do nothing
+}
+
+
 int UsbEndpointIn::clearStall()
 {
     DMESG("clear stall IN %d", ep);
-	if (USB->DEVICE.DeviceEndpoint[ep].EPSTATUS.reg & USB_DEVICE_EPSTATUSSET_STALLRQ1) {
+    if (USB->DEVICE.DeviceEndpoint[ep].EPSTATUS.reg & USB_DEVICE_EPSTATUSSET_STALLRQ1)
+    {
         // Remove stall request
         USB->DEVICE.DeviceEndpoint[ep].EPSTATUSCLR.reg = USB_DEVICE_EPSTATUSCLR_STALLRQ1;
-        if (USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg & USB_DEVICE_EPINTFLAG_STALL1) {
+        if (USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg & USB_DEVICE_EPINTFLAG_STALL1)
+        {
             USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg = USB_DEVICE_EPINTFLAG_STALL1;
             // The Stall has occurred, then reset data toggle
             USB->DEVICE.DeviceEndpoint[ep].EPSTATUSCLR.reg = USB_DEVICE_EPSTATUSSET_DTGLIN;
@@ -208,10 +256,12 @@ int UsbEndpointIn::stall()
 int UsbEndpointOut::clearStall()
 {
     DMESG("clear stall OUT %d", ep);
-	if (USB->DEVICE.DeviceEndpoint[ep].EPSTATUS.reg & USB_DEVICE_EPSTATUSSET_STALLRQ0) {
+    if (USB->DEVICE.DeviceEndpoint[ep].EPSTATUS.reg & USB_DEVICE_EPSTATUSSET_STALLRQ0)
+    {
         // Remove stall request
         USB->DEVICE.DeviceEndpoint[ep].EPSTATUSCLR.reg = USB_DEVICE_EPSTATUSCLR_STALLRQ0;
-        if (USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg & USB_DEVICE_EPINTFLAG_STALL0) {
+        if (USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg & USB_DEVICE_EPINTFLAG_STALL0)
+        {
             USB->DEVICE.DeviceEndpoint[ep].EPINTFLAG.reg = USB_DEVICE_EPINTFLAG_STALL0;
             // The Stall has occurred, then reset data toggle
             USB->DEVICE.DeviceEndpoint[ep].EPSTATUSCLR.reg = USB_DEVICE_EPSTATUSSET_DTGLOUT;
@@ -286,16 +336,14 @@ UsbEndpointOut::UsbEndpointOut(uint8_t idx, uint8_t type, uint8_t size)
 int UsbEndpointOut::disableIRQ()
 {
     USB->DEVICE.DeviceEndpoint[ep].EPINTENCLR.reg =
-        ep == 0 ? USB_DEVICE_EPINTENCLR_RXSTP
-                : USB_DEVICE_EPINTENCLR_TRCPT0;
+        ep == 0 ? USB_DEVICE_EPINTENCLR_RXSTP : USB_DEVICE_EPINTENCLR_TRCPT0;
     return DEVICE_OK;
 }
 
 int UsbEndpointOut::enableIRQ()
 {
     USB->DEVICE.DeviceEndpoint[ep].EPINTENSET.reg =
-        ep == 0 ? USB_DEVICE_EPINTENSET_RXSTP
-                : USB_DEVICE_EPINTENSET_TRCPT0;
+        ep == 0 ? USB_DEVICE_EPINTENSET_RXSTP : USB_DEVICE_EPINTENSET_TRCPT0;
     return DEVICE_OK;
 }
 
@@ -369,9 +417,11 @@ int UsbEndpointIn::write(const void *src, int len)
 
     if (wLength)
     {
-        if (len >= wLength) {
+        if (len >= wLength)
+        {
             len = wLength;
-            // see https://stackoverflow.com/questions/3739901/when-do-usb-hosts-require-a-zero-length-in-packet-at-the-end-of-a-control-read-t
+            // see
+            // https://stackoverflow.com/questions/3739901/when-do-usb-hosts-require-a-zero-length-in-packet-at-the-end-of-a-control-read-t
             zlp = 0;
         }
         wLength = 0;
@@ -381,7 +431,7 @@ int UsbEndpointIn::write(const void *src, int len)
     {
         data_address = (uint32_t)src;
         // data must be in RAM!
-        usb_assert(data_address >= HMCRAMC0_ADDR);
+        usb_assert(data_address >= 0x20000000);
     }
     else
     {
@@ -396,7 +446,8 @@ int UsbEndpointIn::write(const void *src, int len)
 
     // It seems AUTO_ZLP has issues with 64 byte control endpoints.
     // We just send ZLP manually if needed.
-    if (zlp && len && (len & (epSize - 1)) == 0) {
+    if (zlp && len && (len & (epSize - 1)) == 0)
+    {
         writeEP(epdesc, ep, 0);
     }
 
