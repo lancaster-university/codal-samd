@@ -141,7 +141,14 @@ void usb_configure(uint8_t numEndpoints)
     USB->DEVICE.INTENCLR.reg = USB_DEVICE_INTFLAG_MASK;
     USB->DEVICE.INTENSET.reg = USB_DEVICE_INTENSET_EORST;
 
+#ifdef SAMD51
+    NVIC_EnableIRQ(USB_0_IRQn);
+    NVIC_EnableIRQ(USB_1_IRQn);
+    NVIC_EnableIRQ(USB_2_IRQn);
+    NVIC_EnableIRQ(USB_3_IRQn);
+#else
     NVIC_EnableIRQ(USB_IRQn);
+#endif
 
     USB->HOST.CTRLA.bit.ENABLE = true;
 }
@@ -181,10 +188,35 @@ extern "C" void USB_Handler(void)
     cusb->interruptHandler();
 }
 
+#ifdef SAMD51
+extern "C" void USB_0_Handler(void)
+{
+    USB_Handler();
+}
+extern "C" void USB_1_Handler(void)
+{
+    USB_Handler();
+}
+extern "C" void USB_2_Handler(void)
+{
+    USB_Handler();
+}
+extern "C" void USB_3_Handler(void)
+{
+    USB_Handler();
+}
+#endif
+
 void usb_set_address(uint16_t wValue)
 {
     USB->DEVICE.DADD.reg = USB_DEVICE_DADD_ADDEN | wValue;
 }
+
+void usb_set_address_pre(uint16_t wValue)
+{
+    // do nothing
+}
+
 
 int UsbEndpointIn::clearStall()
 {
