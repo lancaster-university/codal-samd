@@ -27,7 +27,6 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalCompat.h"
 #include "CodalDmesg.h"
 #include "SAMDDAC.h"
-#include "SAMDTimer.h"
 
 #include "pins.h"
 #include "tc.h"

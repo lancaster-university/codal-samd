@@ -38,8 +38,12 @@ DEALINGS IN THE SOFTWARE.
 #include "hal_adc_sync.h"
 #include "sam.h"
 #include "CodalDmesg.h"
-#include "SAMDTimer.h"
 #include "hpl_gclk_base.h"
+
+extern "C"
+{
+    #include "clocks.h"
+}
 
 #define IO_STATUS_CAN_READ                                                                         \
     (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
