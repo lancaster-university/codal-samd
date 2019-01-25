@@ -1,7 +1,14 @@
-#include "LowLevelTimer.h"
-
 #ifndef SAMD_TC_TIMER_H
 #define SAMD_TC_TIMER_H
+
+#include "LowLevelTimer.h"
+
+#include "sam.h"
+extern "C"
+{
+    #include "clocks.h"
+    #include "timers.h"
+}
 
 namespace codal
 {

@@ -1,11 +1,5 @@
 #include "SAMDTCTimer.h"
 #include "CodalDmesg.h"
-#include "sam.h"
-extern "C"
-{
-    #include "clocks.h"
-    #include "timers.h"
-}
 
 #ifdef SAMD21
     #define SAMD_SYNC_BUSY_8() while (tc->COUNT8.STATUS.bit.SYNCBUSY)
