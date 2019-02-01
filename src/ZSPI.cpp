@@ -298,6 +298,9 @@ int ZSPI::write(int data)
 
 int ZSPI::transfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer, uint32_t rxSize)
 {
+    if (txSize == 0 && rxSize == 0)
+        return 0; // nothing to do
+
     fiber_wake_on_event(DEVICE_ID_NOTIFY, transferCompleteEventCode);
     auto res = startTransfer(txBuffer, txSize, rxBuffer, rxSize, NULL, NULL);
     LOG("SPI ->");
@@ -317,15 +320,13 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
     uint8_t getSP = 0;
     CODAL_ASSERT(txBuffer < &getSP && rxBuffer < &getSP);
 
-    if (txSize == 0 && rxSize == 0)
-        return 0; // nothing to do
-
     this->doneHandler = doneHandler;
     this->doneHandlerArg = arg;
 
     sercom->SPI.INTFLAG.reg = SERCOM_SPI_INTFLAG_RXC | SERCOM_SPI_INTFLAG_DRE;
 
-    if (txSize == 0) {
+    if (txSize == 0)
+    {
         txSize = rxSize;
         // just send out junk
         txBuffer = rxBuffer;
