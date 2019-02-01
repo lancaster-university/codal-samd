@@ -313,6 +313,10 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
 
     LOG("SPI start %p/%d %p/%d D=%p", txBuffer, txSize, rxBuffer, rxSize, doneHandler);
 
+    // make sure buffers are not on the stack
+    uint8_t getSP = 0;
+    CODAL_ASSERT(txBuffer < &getSP && rxBuffer < &getSP);
+
     if (txSize == 0 && rxSize == 0)
         return 0; // nothing to do
 
@@ -320,6 +324,12 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
     this->doneHandlerArg = arg;
 
     sercom->SPI.INTFLAG.reg = SERCOM_SPI_INTFLAG_RXC | SERCOM_SPI_INTFLAG_DRE;
+
+    if (txSize == 0) {
+        txSize = rxSize;
+        // just send out junk
+        txBuffer = rxBuffer;
+    }
 
     CODAL_ASSERT(txSize > 0);
     CODAL_ASSERT(rxSize == 0 || txSize == rxSize);
