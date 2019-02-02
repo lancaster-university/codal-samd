@@ -277,6 +277,22 @@ int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
     return DEVICE_OK;
 }
 
+int ZSingleWireSerial::getBytesReceived()
+{
+    if (!(status & RX_CONFIGURED))
+        return DEVICE_INVALID_STATE;
+
+    return usart_rx_dma->getBytesTransferred();
+}
+
+int ZSingleWireSerial::getBytesTransmitted()
+{
+    if (!(status & TX_CONFIGURED))
+        return DEVICE_INVALID_STATE;
+
+    return usart_tx_dma->getBytesTransferred();
+}
+
 int ZSingleWireSerial::abortDMA()
 {
     if (!(status & (RX_CONFIGURED | TX_CONFIGURED)))

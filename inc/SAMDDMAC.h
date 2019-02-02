@@ -62,7 +62,7 @@ static inline int sercom_trigger_src(int sercomIdx, bool tx)
 
 class DmaInstance
 {
-
+    uint32_t bufferSize;
     public:
     int channel_number;
     DmaComponent* cb;
@@ -98,6 +98,8 @@ class DmaInstance
 
     DmacDescriptor& getDescriptor();
     void setDescriptor(DmacDescriptor* d);
+
+    int getBytesTransferred();
 
     void trigger(DmaCode c);
 

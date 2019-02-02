@@ -99,6 +99,8 @@ void DmaInstance::transfer(const void *src_addr, void *dst_addr, uint32_t len)
 
     descriptor.BTCNT.bit.BTCNT = len >> descriptor.BTCTRL.bit.BEATSIZE;
 
+    this->bufferSize = len >> descriptor.BTCTRL.bit.BEATSIZE;
+
     if (src_addr)
         descriptor.SRCADDR.reg = (uint32_t)src_addr + len;
     if (dst_addr)
@@ -107,6 +109,12 @@ void DmaInstance::transfer(const void *src_addr, void *dst_addr, uint32_t len)
     enable();
 
     target_enable_irq();
+}
+
+int DmaInstance::getBytesTransferred()
+{
+    DmacDescriptor &descriptor = DmaFactory::instance->getDescriptor(channel_number);
+    return (-1 * descriptor.BTCNT.bit.BTCNT) + this->bufferSize;
 }
 
 void DmaInstance::configure(uint8_t trig_src, DmaBeatSize beat_size, volatile void *src_addr, volatile void *dst_addr)

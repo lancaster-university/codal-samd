@@ -66,6 +66,9 @@ namespace codal
         virtual int setBaud(uint32_t baud);
         virtual uint32_t getBaud();
 
+        int getBytesReceived() override;
+        int getBytesTransmitted() override;
+
         virtual int setMode(SingleWireMode sw);
 
         virtual int sendBreak();
