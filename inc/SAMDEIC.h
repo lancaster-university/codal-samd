@@ -105,17 +105,19 @@ class EICChannel
 
 class EICFactory
 {
-    public:
-
-    static EICChannel* instances[EIC_CHANNEL_COUNT]; // EIC channel instances.
-    static EICFactory* instance;    // singleton reference
-
     /**
      * A management instance for the external interrupt controller.
      *
      * Returns instances of EICChannels if the channel is not already in use.
      */
     EICFactory();
+
+    public:
+
+    static EICChannel* instances[EIC_CHANNEL_COUNT]; // EIC channel instances.
+    static EICFactory* instance;    // singleton reference
+
+    static EICFactory* getInstance();
 
     /**
      * Disables all external interrupt channels

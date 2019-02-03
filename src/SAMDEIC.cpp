@@ -7,8 +7,6 @@ extern "C"
 #include "external_interrupts.h"
 }
 
-extern void string_dbg_const(const char *str);
-
 using namespace codal;
 
 EICFactory* EICFactory::instance = NULL;
@@ -65,13 +63,16 @@ void EICChannel::enable(EICEventType t)
     turn_on_eic_channel(this->channel_number, t, EIC_HANDLER_APP);
 }
 
+EICFactory* EICFactory::getInstance()
+{
+    if (instance == NULL)
+        instance = new EICFactory();
+
+    return instance;
+}
+
 EICFactory::EICFactory()
 {
-    if (instance)
-        return;
-
-    instance = this;
-
     memset(instances, 0, sizeof(EICChannel*) * EIC_CHANNEL_COUNT);
 
     turn_on_external_interrupt_controller();
