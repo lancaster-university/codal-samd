@@ -46,7 +46,7 @@ extern "C"
 }
 
 #define IO_STATUS_CAN_READ                                                                         \
-    (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
+    (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE)
 
 static uint8_t adc_clk_enabled = 0;
 
@@ -115,7 +115,7 @@ void ZPin::disconnect()
         this->pwmCfg = NULL;
     }
 
-    if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE))
+    if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE))
     {
         this->chan->disable();
         this->chan = NULL;
@@ -192,7 +192,7 @@ int ZPin::getDigitalValue()
 {
     // Move into a Digital input state if necessary.
     if (!(status &
-          (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
+          (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE)))
     {
         disconnect();
         gpio_set_pin_function(name, GPIO_PIN_FUNCTION_OFF);
@@ -613,6 +613,9 @@ void ZPin::pinEventDetected()
 
     if (status & IO_STATUS_EVENT_ON_EDGE)
         Event(id, isRise ? DEVICE_PIN_EVT_RISE : DEVICE_PIN_EVT_FALL, 0, CREATE_AND_FIRE);
+
+    if (status & IO_STATUS_INTERRUPT_ON_EDGE)
+        this->gpio_irq(isRise);
 }
 
 /**
@@ -627,7 +630,7 @@ void ZPin::pinEventDetected()
 int ZPin::enableRiseFallEvents(int eventType)
 {
     // if we are in neither of the two modes, configure pin as a TimedInterruptIn.
-    if (!(status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
+    if (!(status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE)))
     {
         if (!(status & IO_STATUS_DIGITAL_IN))
             getDigitalValue();
@@ -653,13 +656,15 @@ int ZPin::enableRiseFallEvents(int eventType)
         this->chan->enable(EICEventsRiseFall);
     }
 
-    status &= ~(IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE);
+    status &= ~(IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE);
 
     // set our status bits accordingly.
     if (eventType == DEVICE_PIN_EVENT_ON_EDGE)
         status |= IO_STATUS_EVENT_ON_EDGE;
     else if (eventType == DEVICE_PIN_EVENT_ON_PULSE)
         status |= IO_STATUS_EVENT_PULSE_ON_EDGE;
+    else if (eventType == DEVICE_PIN_INTERRUPT_ON_EDGE)
+        status |= IO_STATUS_INTERRUPT_ON_EDGE;
 
     return DEVICE_OK;
 }
@@ -672,7 +677,7 @@ int ZPin::enableRiseFallEvents(int eventType)
  */
 int ZPin::disableEvents()
 {
-    if (status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_TOUCH_IN))
+    if (status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE | IO_STATUS_TOUCH_IN))
     {
         disconnect();
         getDigitalValue();
