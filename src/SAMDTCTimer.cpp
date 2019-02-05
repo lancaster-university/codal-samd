@@ -122,7 +122,7 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
 
     instances[tc_index] = this;
 
-    setBitMode(BitMode32);
+    setBitMode(BitMode16);
 
     // configure
     switch (bitMode)
