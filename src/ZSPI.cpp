@@ -231,9 +231,10 @@ void ZSPI::init()
         }
     }
 
-    LOG("SPI instance %p", sercom);
-
     uint8_t baud_reg_value = samd_peripherals_spi_baudrate_to_baud_reg_value(freq);
+
+    DMESG("SPI instance %p req %dkHz, got %dkHz baud=%d", sercom, freq / 1000,
+          samd_peripherals_spi_baud_reg_value_to_baudrate(baud_reg_value) / 1000, baud_reg_value);
 
     void *hw = spi_desc.dev.prvt;
     // Disable, set values (most or all are enable-protected), and re-enable.
