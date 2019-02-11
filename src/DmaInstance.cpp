@@ -62,9 +62,6 @@ void DmaInstance::trigger(DmaCode c)
 void DmaInstance::abort()
 {
     disable();
-
-    if (this->cb)
-        this->cb->dmaTransferComplete(DMA_ERROR);
 }
 
 /**
