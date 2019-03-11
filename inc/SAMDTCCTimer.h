@@ -22,6 +22,8 @@ class SAMDTCCTimer : public LowLevelTimer
 
     SAMDTCCTimer(Tcc* tcc, uint8_t irqN);
 
+    virtual int setIRQPriority(int priority) override;
+
     virtual int enable();
 
     virtual int enableIRQ();
