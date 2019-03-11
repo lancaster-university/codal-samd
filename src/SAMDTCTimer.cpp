@@ -150,7 +150,7 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
     setIRQPriority(2);
 }
 
-int SAMDTCCTimer::setIRQPriority(int priority)
+int SAMDTCTimer::setIRQPriority(int priority)
 {
     NVIC_SetPriority((IRQn_Type)this->irqN, priority);
     return DEVICE_OK;
