@@ -146,11 +146,18 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
 
     // 1000 khz == 1 mhz
     setClockSpeed(1000);
+
+    setIRQPriority(2);
+}
+
+int SAMDTCTimer::setIRQPriority(int priority)
+{
+    NVIC_SetPriority((IRQn_Type)this->irqN, priority);
+    return DEVICE_OK;
 }
 
 int SAMDTCTimer::enable()
 {
-    NVIC_SetPriority((IRQn_Type)this->irqN, 2);
     NVIC_ClearPendingIRQ((IRQn_Type)this->irqN);
     enableIRQ();
     tc_set_enable(tc, true);
