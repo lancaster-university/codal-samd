@@ -246,7 +246,7 @@ uint32_t SAMDTCCTimer::captureCounter()
     #error TC sync needs to be implemented
 #endif
 
-    NVIC_DisableIRQ((IRQn_Type)this->irqN);
+    NVIC_EnableIRQ((IRQn_Type)this->irqN);
     return elapsed;
 }
 
