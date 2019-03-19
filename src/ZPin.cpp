@@ -43,6 +43,7 @@ DEALINGS IN THE SOFTWARE.
 extern "C"
 {
     #include "clocks.h"
+    #include "adc.h"
 }
 
 #define IO_STATUS_CAN_READ                                                                         \
@@ -344,55 +345,96 @@ int ZPin::getAnalogValue()
     {
         disconnect();
         gpio_set_pin_function(name, MUX_B); // mux b is ADC
-
-        if (adc_clk_enabled == 0)
-        {
-            adc_clk_enabled = 1;
-#ifdef SAMD21
-            _gclk_enable_channel(ADC_GCLK_ID, CLK_GEN_8MHZ);
-#else
-            _gclk_enable_channel(ADC0_GCLK_ID, CLK_GEN_8MHZ);
-            _gclk_enable_channel(ADC1_GCLK_ID, CLK_GEN_8MHZ);
-#endif
-        }
+        gpio_set_pin_direction(name, GPIO_DIRECTION_IN);
 
         status = IO_STATUS_ANALOG_IN;
     }
-
-    // rather than maintain state on many pins, we reconfigure the adc each time it is used.
+#ifdef SAMD21
     static adc_sync_descriptor adc_descriptor;
+    samd_peripherals_adc_setup(&adc_descriptor, ADC);
 
-#ifdef SAMD21
-    adc_sync_init(&adc_descriptor, ADC, NULL);
-#else
-    adc_sync_init(&adc_descriptor, ADC0, NULL);
-    #warning what to do about ADC1?
-#endif
-    adc_sync_set_reference(&adc_descriptor, ADC_REFCTRL_REFSEL_INTVCC1_Val);
+    ADC->CTRLA.bit.ENABLE = 0;
+    while(ADC->STATUS.bit.SYNCBUSY);
 
-#ifdef SAMD21
-    adc_sync_set_channel_gain(&adc_descriptor, channel, ADC_INPUTCTRL_GAIN_DIV2_Val);
-#endif
+    ADC->REFCTRL.bit.REFSEL = 0x2;
+    while(ADC->STATUS.bit.SYNCBUSY);
 
-    adc_sync_set_resolution(&adc_descriptor, ADC_CTRLB_RESSEL_10BIT_Val); // 10 bit conversion
-    adc_sync_enable_channel(&adc_descriptor, channel);
-    adc_sync_set_inputs(&adc_descriptor, channel, ADC_INPUTCTRL_MUXNEG_GND_Val, channel);
+    ADC->CTRLB.bit.RESSEL = 0x2;
+    while(ADC->STATUS.bit.SYNCBUSY);
 
-#ifdef SAMD51
-    #warning the ADC code may need changing (probs not)
-#endif
-    // first result is always garbaggeeee, according to the datasheet
-    adc_sync_read_channel(&adc_descriptor, channel, (uint8_t*) &res, sizeof(res));
+    ADC->CTRLB.bit.PRESCALER = 0x2;
+    while(ADC->STATUS.bit.SYNCBUSY);
 
-    // returns the number of bytes read.
-    int ret = adc_sync_read_channel(&adc_descriptor, adc_pin->adc_input[0], (uint8_t*)&res, sizeof(res));
+    ADC->INPUTCTRL.bit.MUXPOS = channel;
+    while(ADC->STATUS.bit.SYNCBUSY);
 
-    adc_sync_deinit(&adc_descriptor);
+    ADC->INPUTCTRL.bit.MUXNEG = 0x19;
+    while(ADC->STATUS.bit.SYNCBUSY);
 
-    if (ret <= 0)
-        return DEVICE_NOT_SUPPORTED;
+    ADC->INPUTCTRL.bit.GAIN = 0xF;
+    while(ADC->STATUS.bit.SYNCBUSY);
+
+    ADC->CTRLA.bit.ENABLE = 1;
+    while(ADC->STATUS.bit.SYNCBUSY);
+
+    ADC->INTFLAG.bit.RESRDY = 1;
+    ADC->SWTRIG.bit.START = 1;
+    while(!ADC->INTFLAG.bit.RESRDY);
+
+    ADC->INTFLAG.bit.RESRDY = 1;
+    ADC->SWTRIG.bit.START = 1;
+    while(!ADC->INTFLAG.bit.RESRDY);
+
+    res = ADC->RESULT.reg;
+    while(ADC->STATUS.bit.SYNCBUSY);
+
+    ADC->CTRLA.bit.ENABLE = 0;
+    while(ADC->STATUS.bit.SYNCBUSY);
 
     return res;
+#else
+#warning ADC NOT IMPLEMENTED
+#endif
+    // while(ADC.)
+
+    // rather than maintain state on many pins, we reconfigure the adc each time it is used.
+    // static adc_sync_descriptor adc_descriptor;
+
+    // samd_peripherals_adc_setup(&adc_descriptor, ADC);
+
+// #ifdef SAMD21
+//     adc_sync_init(&adc_descriptor, ADC, NULL);
+// #else
+//     adc_sync_init(&adc_descriptor, ADC0, NULL);
+//     #warning what to do about ADC1?
+// #endif
+//     adc_sync_set_reference(&adc_descriptor, ADC_REFCTRL_REFSEL_INTVCC1_Val);
+
+// #ifdef SAMD21
+//     adc_sync_set_channel_gain(&adc_descriptor, channel, ADC_INPUTCTRL_GAIN_DIV2_Val);
+// #endif
+
+//     adc_sync_set_resolution(&adc_descriptor, ADC_CTRLB_RESSEL_10BIT_Val); // 10 bit conversion
+//     adc_sync_enable_channel(&adc_descriptor, channel);
+//     adc_sync_set_inputs(&adc_descriptor, channel, ADC_INPUTCTRL_MUXNEG_GND_Val, channel);
+
+// #ifdef SAMD51
+//     #warning the ADC code may need changing (probs not)
+// #endif
+//     // first result is always garbaggeeee, according to the datasheet
+//     adc_sync_read_channel(&adc_descriptor, channel, (uint8_t*) &res, sizeof(res));
+
+//     // returns the number of bytes read.
+//     int ret = adc_sync_read_channel(&adc_descriptor, channel, (uint8_t*)&res, sizeof(res));
+//     DMESG("ret %d",ret);
+
+//     adc_sync_disable_channel(&adc_descriptor, channel);
+//     adc_sync_deinit(&adc_descriptor);
+
+    // if (ret <= 0)
+    //     return DEVICE_NOT_SUPPORTED;
+
+    // return res;
 }
 
 /**
