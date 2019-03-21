@@ -245,7 +245,7 @@ int ZPin::setPWM(uint32_t value, uint32_t period)
         r = pwmout_write(this->pwmCfg, value, period);
     }
 
-    CODAL_ASSERT(r == 0);
+    CODAL_ASSERT(r == 0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     return DEVICE_OK;
 }
@@ -633,8 +633,8 @@ int ZPin::enableRiseFallEvents(int eventType)
             getDigitalValue();
 
         const mcu_pin_obj_t* pin = samd_peripherals_get_pin(name);
-        CODAL_ASSERT(pin != NULL);
-        CODAL_ASSERT(pin->has_extint);
+        CODAL_ASSERT(pin != NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+        CODAL_ASSERT(pin->has_extint, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
         if (!evCfg)
             evCfg = new ZEventConfig;

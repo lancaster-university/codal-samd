@@ -95,8 +95,8 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     DmaFactory factory;
     usart_tx_dma = factory.allocate();
     usart_rx_dma = factory.allocate();
-    CODAL_ASSERT(usart_tx_dma != NULL);
-    CODAL_ASSERT(usart_rx_dma != NULL);
+    CODAL_ASSERT(usart_tx_dma != NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+    CODAL_ASSERT(usart_rx_dma != NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     usart_tx_dma->onTransferComplete(this);
     usart_rx_dma->onTransferComplete(this);

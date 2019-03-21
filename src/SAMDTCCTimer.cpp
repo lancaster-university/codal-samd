@@ -65,9 +65,9 @@ SAMDTCCTimer::SAMDTCCTimer(Tcc* tcc, uint8_t irqn) : LowLevelTimer(4)
         tcc_index++;
     }
 
-    CODAL_ASSERT(tcc_index < TCC_INST_NUM);
+    CODAL_ASSERT(tcc_index < TCC_INST_NUM, DEVICE_HARDWARE_CONFIGURATION_ERROR);
     // we should do a singleton here...
-    CODAL_ASSERT(instances[tcc_index] == NULL);
+    CODAL_ASSERT(instances[tcc_index] == NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     DMESG("tcc_ind: %d clk_index: %d", tcc_index, CLK_GEN_8MHZ);
 
