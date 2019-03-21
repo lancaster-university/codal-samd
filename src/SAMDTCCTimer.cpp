@@ -100,11 +100,18 @@ SAMDTCCTimer::SAMDTCCTimer(Tcc* tcc, uint8_t irqn) : LowLevelTimer(4)
 
     // 1000 khz == 1 mhz
     setClockSpeed(1000);
+
+    setIRQPriority(2);
+}
+
+int SAMDTCCTimer::setIRQPriority(int priority)
+{
+    NVIC_SetPriority((IRQn_Type)this->irqN, priority);
+    return DEVICE_OK;
 }
 
 int SAMDTCCTimer::enable()
 {
-    NVIC_SetPriority((IRQn_Type)this->irqN, 2);
     NVIC_ClearPendingIRQ((IRQn_Type)this->irqN);
     enableIRQ();
     tcc_set_enable(tcc, true);
@@ -239,7 +246,7 @@ uint32_t SAMDTCCTimer::captureCounter()
     #error TC sync needs to be implemented
 #endif
 
-    NVIC_DisableIRQ((IRQn_Type)this->irqN);
+    NVIC_EnableIRQ((IRQn_Type)this->irqN);
     return elapsed;
 }
 
