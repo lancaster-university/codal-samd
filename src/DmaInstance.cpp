@@ -90,7 +90,7 @@ void DmaInstance::setDescriptor(DmacDescriptor* desc)
 
 void DmaInstance::transfer(const void *src_addr, void *dst_addr, uint32_t len)
 {
-    CODAL_ASSERT(channel_number >= 0);
+    CODAL_ASSERT(channel_number >= 0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
     target_disable_irq();
     DmacDescriptor &descriptor = DmaFactory::instance->getDescriptor(channel_number);
 
@@ -116,7 +116,7 @@ int DmaInstance::getBytesTransferred()
 
 void DmaInstance::configure(uint8_t trig_src, DmaBeatSize beat_size, volatile void *src_addr, volatile void *dst_addr)
 {
-    CODAL_ASSERT(channel_number >= 0);
+    CODAL_ASSERT(channel_number >= 0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
     target_disable_irq();
 
 #ifdef SAMD21

@@ -22,10 +22,6 @@ void wait_us(uint32_t us);
 }
 #endif
 
-#define CODAL_ASSERT(cond)                                                                         \
-    if (!(cond))                                                                                   \
-    target_panic(909)
-
 #define MBED_ASSERT CODAL_ASSERT
 #define MBED_ERROR(msg) CODAL_ASSERT(0)
 #define MBED_WEAK __attribute__((weak))
