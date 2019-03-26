@@ -110,8 +110,17 @@ void DmaInstance::transfer(const void *src_addr, void *dst_addr, uint32_t len)
 
 int DmaInstance::getBytesTransferred()
 {
-    DmacDescriptor &descriptor = DmaFactory::instance->getDescriptor(channel_number);
-    return (-1 * descriptor.BTCNT.bit.BTCNT) + this->bufferSize;
+    uint32_t btcnt = 0;
+#ifdef SAMD21
+    uint8_t chan = DMAC->CHID.bit.ID;
+    DMAC->CHID.bit.ID = channel_number; // Select our allocated channel
+    btcnt = DMAC->ACTIVE.bit.BTCNT;
+    DMAC->CHID.bit.ID = chan; // Select our allocated channel
+#else
+    DmacChannel *channel = &DMAC->Channel[channel_number];
+    btcnt = channel->BTCNT.reg;
+#endif
+    return this->bufferSize - btcnt;
 }
 
 void DmaInstance::configure(uint8_t trig_src, DmaBeatSize beat_size, volatile void *src_addr, volatile void *dst_addr)
