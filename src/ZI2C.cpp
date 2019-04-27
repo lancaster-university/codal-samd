@@ -13,8 +13,18 @@ void ZI2C::reset()
     i2c_m_sync_deinit(&this->i2c);
 
     DMESG("R RECOVERY!");
+    gpio_set_pin_function(this->sda.name, GPIO_PIN_FUNCTION_OFF);
     gpio_set_pin_function(this->scl.name, GPIO_PIN_FUNCTION_OFF);
+
+    gpio_set_pin_direction(this->sda.name, GPIO_DIRECTION_OUT);
     gpio_set_pin_direction(this->scl.name, GPIO_DIRECTION_OUT);
+    gpio_set_pin_level(this->sda.name,false);
+    gpio_set_pin_level(this->scl.name,false);
+
+    target_wait_us(10);
+
+    gpio_set_pin_level(this->sda.name,true);
+    gpio_set_pin_level(this->scl.name,true);
 
     for (int i = 0; i < 8; i++)
     {
@@ -25,8 +35,11 @@ void ZI2C::reset()
     }
 
     gpio_set_pin_function(this->scl.name,GPIO_DIRECTION_IN);
+    gpio_set_pin_function(this->sda.name,GPIO_DIRECTION_IN);
     gpio_set_pin_pull_mode(this->scl.name, GPIO_PULL_OFF);
+    gpio_set_pin_pull_mode(this->sda.name, GPIO_PULL_OFF);
     scl._setMux(sclMux);
+    sda._setMux(sdaMux);
 
     memset(&i2c, 0, sizeof(i2c_m_sync_desc));
     int ret = 0;
@@ -107,6 +120,7 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
     DMESG("SCL pad %d, idx %d, fn: %d", sercomIdx, scl_fun);
 
     sclMux = scl_fun;
+    sdaMux = sda_fun;
 
     sda._setMux(sda_fun);
     scl._setMux(scl_fun);
@@ -192,7 +206,7 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
         }
     }
 
-    if (ret == -5)
+    if (ret == -5 || ret == -4)
     {
         DMESG("W RECOVERY!");
         this->reset();
@@ -253,7 +267,7 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
         }
     }
 
-    if (ret == -5)
+    if (ret == -5 || ret == -4)
     {
         DMESG("R RECOVERY!");
         this->reset();
