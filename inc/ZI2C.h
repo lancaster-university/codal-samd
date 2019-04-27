@@ -31,6 +31,7 @@ DEALINGS IN THE SOFTWARE.
 
 extern "C"
 {
+    #include "sercom.h"
     #include "hal_i2c_m_sync.h"
 }
 
@@ -41,7 +42,11 @@ namespace codal
  */
 class ZI2C : public codal::I2C
 {
+    uint32_t sclMux;
+    Sercom* instance;
     i2c_m_sync_desc i2c;
+
+    void reset();
 protected:
     ZPin &sda, &scl;
 public:
