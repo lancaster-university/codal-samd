@@ -99,6 +99,8 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     this->id = DEVICE_ID_SERIAL;
     sws_instance = this;
 
+    memset(&USART_INSTANCE, 0, sizeof(_usart_async_device));
+
     samd_peripherals_sercom_clock_init(instance, instance_number);
     _usart_async_init(&USART_INSTANCE, instance);
 
