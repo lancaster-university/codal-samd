@@ -31,6 +31,15 @@ static void error_callback(struct _usart_async_device *device)
         sws_instance->dmaTransferComplete(DMA_ERROR);
 }
 
+static void tx_callback(struct _usart_async_device *)
+{
+}
+
+
+static void rx_callback(struct _usart_async_device *, uint8_t)
+{
+}
+
 void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
 {
     uint16_t mode = 0;
@@ -106,6 +115,8 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 
     // enable error callback to abort dma when an error is detected (error bit is not linked to dma unfortunately).
     USART_INSTANCE.usart_cb.error_cb = error_callback;
+    USART_INSTANCE.usart_cb.tx_done_cb = tx_callback;
+    USART_INSTANCE.usart_cb.rx_done_cb = rx_callback;
     _usart_async_set_irq_state(&USART_INSTANCE, USART_ASYNC_ERROR, true);
 
     DmaFactory factory;
