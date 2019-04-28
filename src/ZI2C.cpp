@@ -237,7 +237,7 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 {
     int busState = ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE;
 
-    DMESG("BS %d",busState);
+    // DMESG("BS %d",busState);
 
     if (busState == 0)
     {
