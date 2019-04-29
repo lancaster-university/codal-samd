@@ -106,7 +106,7 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
     gpio_set_pin_pull_mode(sda_pin->number, GPIO_PULL_OFF);
     gpio_set_pin_pull_mode(scl_pin->number, GPIO_PULL_OFF);
 
-    // target_wait_us(3);
+    target_wait_us(3);
 
     // if (!gpio_get_pin_level(sda_pin->number) || !gpio_get_pin_level(scl_pin->number)) {
 
@@ -116,8 +116,8 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
     //     // mp_raise_RuntimeError(translate("SDA or SCL needs a pull up"));
     // }
 
-    DMESG("SDA pad %d, idx %d, fn: %d", sercomIdx, sda_fun);
-    DMESG("SCL pad %d, idx %d, fn: %d", sercomIdx, scl_fun);
+    DMESG("SDA idx %d, fn: %d", sercomIdx, sda_fun);
+    DMESG("SCL idx %d, fn: %d", sercomIdx, scl_fun);
 
     sclMux = scl_fun;
     sdaMux = sda_fun;
@@ -179,12 +179,12 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 
     // DMESG("BS %d",busState);
 
-    if (busState == 0)
-    {
-        DMESG("FORCING STATE");
-        ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE = 1;
-        while(((Sercom*)&i2c.device.hw)->I2CM.SYNCBUSY.bit.SYSOP);
-    }
+    // if (busState == 0)
+    // {
+    //     DMESG("FORCING STATE");
+    //     ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE = 1;
+    //     while(((Sercom*)&i2c.device.hw)->I2CM.SYNCBUSY.bit.SYSOP);
+    // }
     address = address >> 1;
     // DMESG("W A: %d L: %d", address, len);
     struct _i2c_m_msg msg;
@@ -239,12 +239,12 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 
     // DMESG("BS %d",busState);
 
-    if (busState == 0)
-    {
-        DMESG("FORCING STATE");
-        ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE = 1;
-        while(((Sercom*)&i2c.device.hw)->I2CM.SYNCBUSY.bit.SYSOP);
-    }
+    // if (busState == 0)
+    // {
+    //     DMESG("FORCING STATE");
+    //     ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE = 1;
+    //     while(((Sercom*)&i2c.device.hw)->I2CM.SYNCBUSY.bit.SYSOP);
+    // }
 
     address = address >> 1;
     // DMESG("R A: %d, L: %d", address, len);
