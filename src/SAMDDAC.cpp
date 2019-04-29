@@ -207,16 +207,37 @@ int SAMDDAC::pullRequest()
     return DEVICE_OK;
 }
 
+void SAMDDAC::prefill()
+{
+    if (!dataReady)
+        return;
+
+    dataReady--;
+    if (!active) {
+        active = true;
+        nextBuffer = upstream.pull();
+        active = false;
+    } else {
+        nextBuffer = upstream.pull();
+    }
+}
+
+
 /**
  * Pull down a buffer from upstream, and schedule a DMA transfer from it.
  */
 int SAMDDAC::pull()
 {
-    output = upstream.pull();
-    dataReady--;
+    if (!nextBuffer.length())
+        prefill();
 
-    if (output.length() == 0)
-    {
+    buffer = nextBuffer;
+    nextBuffer = ManagedBuffer();
+
+    // DMESG("DAC %d bytes", buffer.length());
+    if (buffer.length()) {
+        dmaInstance->transfer((const void *)&buffer[0], NULL, buffer.length());
+    } else {
         dataReady = 0;
         active = false;
         return DEVICE_OK;
@@ -224,11 +245,7 @@ int SAMDDAC::pull()
 
     active = true;
 
-    DMESG("DAC %d bytes", output.length());
-
-    dmaInstance->transfer((const void *)&output[0], NULL, output.length());
-
-
+    prefill();
     return DEVICE_OK;
 }
 
