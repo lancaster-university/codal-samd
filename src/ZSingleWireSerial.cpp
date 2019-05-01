@@ -119,6 +119,9 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     USART_INSTANCE.usart_cb.rx_done_cb = rx_callback;
     _usart_async_set_irq_state(&USART_INSTANCE, USART_ASYNC_ERROR, true);
 
+    // manually ask for collision detection errors.
+    instance->USART.CTRLB.bit.COLDEN = 1;
+
     DmaFactory factory;
     usart_tx_dma = factory.allocate();
     usart_rx_dma = factory.allocate();
