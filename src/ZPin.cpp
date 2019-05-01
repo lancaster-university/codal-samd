@@ -42,13 +42,12 @@ DEALINGS IN THE SOFTWARE.
 
 extern "C"
 {
+    #include "adc.h"
     #include "clocks.h"
 }
 
 #define IO_STATUS_CAN_READ                                                                         \
     (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
-
-static uint8_t adc_clk_enabled = 0;
 
 #define MUX_B           1
 
@@ -336,6 +335,18 @@ int ZPin::getAnalogValue()
 
     const mcu_pin_obj_t* adc_pin = samd_peripherals_get_pin(name);
     uint8_t channel = adc_pin->adc_input[0];
+#ifdef SAMD21
+    Adc *adc = ADC;
+#else
+    Adc *adc = ADC0;
+    if (channel == 0xff) {
+        adc = ADC1;
+        channel = adc_pin->adc_input[1];
+    }
+#endif
+
+    if (channel == 0xff)
+        return DEVICE_NOT_SUPPORTED;
 
     uint16_t res = 0;
 
@@ -344,30 +355,16 @@ int ZPin::getAnalogValue()
     {
         disconnect();
         gpio_set_pin_function(name, MUX_B); // mux b is ADC
-
-        if (adc_clk_enabled == 0)
-        {
-            adc_clk_enabled = 1;
-#ifdef SAMD21
-            _gclk_enable_channel(ADC_GCLK_ID, CLK_GEN_8MHZ);
-#else
-            _gclk_enable_channel(ADC0_GCLK_ID, CLK_GEN_8MHZ);
-            _gclk_enable_channel(ADC1_GCLK_ID, CLK_GEN_8MHZ);
-#endif
-        }
-
         status = IO_STATUS_ANALOG_IN;
     }
 
     // rather than maintain state on many pins, we reconfigure the adc each time it is used.
     static adc_sync_descriptor adc_descriptor;
 
-#ifdef SAMD21
-    adc_sync_init(&adc_descriptor, ADC, NULL);
-#else
-    adc_sync_init(&adc_descriptor, ADC0, NULL);
-    #warning what to do about ADC1?
-#endif
+    memset(&adc_descriptor, 0, sizeof(adc_descriptor));
+
+    samd_peripherals_adc_setup(&adc_descriptor, adc);
+
     adc_sync_set_reference(&adc_descriptor, ADC_REFCTRL_REFSEL_INTVCC1_Val);
 
 #ifdef SAMD21
@@ -385,7 +382,7 @@ int ZPin::getAnalogValue()
     adc_sync_read_channel(&adc_descriptor, channel, (uint8_t*) &res, sizeof(res));
 
     // returns the number of bytes read.
-    int ret = adc_sync_read_channel(&adc_descriptor, adc_pin->adc_input[0], (uint8_t*)&res, sizeof(res));
+    int ret = adc_sync_read_channel(&adc_descriptor, channel, (uint8_t*)&res, sizeof(res));
 
     adc_sync_deinit(&adc_descriptor);
 

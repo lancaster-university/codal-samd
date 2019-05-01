@@ -50,6 +50,7 @@ LIST(APPEND TOP_LEVEL_SOURCE
     "${SP2}/timers.c"
     "${SP}/sercom.c"
     "${SP2}/sercom.c"
+    "${SP2}/adc.c"
     "${SP}/external_interrupts.c"
     "${SP2}/external_interrupts.c"
     "${ASF}/hal/src/hal_atomic.c"
