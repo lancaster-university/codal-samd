@@ -375,9 +375,6 @@ int ZPin::getAnalogValue()
     adc_sync_enable_channel(&adc_descriptor, channel);
     adc_sync_set_inputs(&adc_descriptor, channel, ADC_INPUTCTRL_MUXNEG_GND_Val, channel);
 
-#ifdef SAMD51
-    #warning the ADC code may need changing (probs not)
-#endif
     // first result is always garbaggeeee, according to the datasheet
     adc_sync_read_channel(&adc_descriptor, channel, (uint8_t*) &res, sizeof(res));
 
