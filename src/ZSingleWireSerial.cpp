@@ -132,6 +132,13 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     usart_rx_dma->configure(sercom_trigger_src(this->instance_number, false), BeatByte, (volatile void*)&CURRENT_USART->USART.DATA.reg, NULL);
 
     setBaud(115200);
+
+    NVIC_SetPriority(SERCOM0_IRQn,1);
+    NVIC_SetPriority(SERCOM1_IRQn,1);
+    NVIC_SetPriority(SERCOM2_IRQn,1);
+    NVIC_SetPriority(SERCOM3_IRQn,1);
+    NVIC_SetPriority(SERCOM4_IRQn,1);
+    NVIC_SetPriority(SERCOM5_IRQn,1);
 }
 
 int ZSingleWireSerial::setBaud(uint32_t baud)
