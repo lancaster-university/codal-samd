@@ -106,6 +106,7 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
 #ifdef SAMD51
     //DAC->EVCTRL.reg |= DAC_EVCTRL_STARTEI0;
     DAC->DACCTRL[0].reg = DAC_DACCTRL_CCTRL_CC12M | DAC_DACCTRL_ENABLE; // | DAC_DACCTRL_LEFTADJ;
+    DAC->DACCTRL[1].reg = DAC_DACCTRL_CCTRL_CC12M | DAC_DACCTRL_ENABLE; // | DAC_DACCTRL_LEFTADJ;
     DAC->CTRLB.reg = DAC_CTRLB_REFSEL_VREFPU;
 #endif
 
@@ -119,6 +120,8 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
     while (DAC->SYNCBUSY.bit.ENABLE == 1)
         ;
     while (DAC->STATUS.bit.READY0 == 0)
+        ;
+    while (DAC->STATUS.bit.READY1 == 0)
         ;
 #endif
 
@@ -158,13 +161,21 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
 
     setSampleRate(sampleRate);
 
-
     DmaFactory factory;
-    dmaInstance = factory.allocate();
-    CODAL_ASSERT(dmaInstance != NULL);
 
+    DmaInstance *dmaInstance = factory.allocate();
+    CODAL_ASSERT(dmaInstance != NULL);
     dmaInstance->onTransferComplete(this);
     dmaInstance->configure(TC3_DMAC_ID_OVF, BeatHalfWord, NULL, (volatile void *)&DAC_DATA);
+    dmaInstance0 = dmaInstance;
+
+#ifdef SAMD51
+    dmaInstance = factory.allocate();
+    CODAL_ASSERT(dmaInstance != NULL);
+    dmaInstance->onTransferComplete(this);
+    dmaInstance->configure(TC3_DMAC_ID_OVF, BeatHalfWord, NULL, (volatile void *)&DAC->DATA[1].reg);
+    dmaInstance1 = dmaInstance;
+#endif
 
     // Register with our upstream component
     source.connect(*this);
@@ -231,6 +242,7 @@ void SAMDDAC::prefill()
     }
 }
 
+static ManagedBuffer copy;
 
 /**
  * Pull down a buffer from upstream, and schedule a DMA transfer from it.
@@ -245,7 +257,11 @@ int SAMDDAC::pull()
 
     // DMESG("DAC %d bytes", buffer.length());
     if (buffer.length()) {
-        dmaInstance->transfer((const void *)&buffer[0], NULL, buffer.length());
+        dmaInstance0->transfer((const void *)&buffer[0], NULL, buffer.length());
+        copy = buffer.slice(0);
+#ifdef SAMD51
+        dmaInstance1->transfer((const void *)&copy[0], NULL, copy.length());
+#endif
     } else {
         dataReady = 0;
         active = false;

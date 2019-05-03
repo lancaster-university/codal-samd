@@ -46,7 +46,10 @@ private:
     int         sampleRate;
     Tc*         tc;
 
-    DmaInstance* dmaInstance;
+    DmaInstance* dmaInstance0;
+#ifdef SAMD51
+    DmaInstance* dmaInstance1;
+#endif
     void prefill();
 
 public:
