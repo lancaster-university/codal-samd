@@ -63,8 +63,18 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
 
     // Put the pin into output mode.
     pin.setDigitalValue(0);
-
+    pin._setMux(MUX_B);
     CODAL_ASSERT(pin.name == PIN_PA02);
+
+#if 0
+    // Configure AREFB as MUX_B
+    // this doesn't seem needed, though the datasheet suggests it should be
+    {
+        ZPin aref(DEVICE_ID_IO_P0 + PIN_PA03, PIN_PA03, PIN_CAPABILITY_ALL);
+        aref.getDigitalValue();
+        aref._setMux(MUX_B);
+    }
+#endif
 
 #ifdef SAMD51
     hri_mclk_set_APBDMASK_DAC_bit(MCLK);
@@ -89,13 +99,13 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
 #endif
 
 #ifdef SAMD21
-    DAC->EVCTRL.reg |= DAC_EVCTRL_STARTEI;
+    //DAC->EVCTRL.reg |= DAC_EVCTRL_STARTEI;
     // We disable the voltage pump because we always run at 3.3v.
     DAC->CTRLB.reg = DAC_CTRLB_REFSEL_AVCC | DAC_CTRLB_EOEN | DAC_CTRLB_VPD; //  | DAC_CTRLB_LEFTADJ
 #endif
 #ifdef SAMD51
-    DAC->EVCTRL.reg |= DAC_EVCTRL_STARTEI0;
-    DAC->DACCTRL[0].reg = DAC_DACCTRL_CCTRL_CC1M | DAC_DACCTRL_ENABLE; // | DAC_DACCTRL_LEFTADJ;
+    //DAC->EVCTRL.reg |= DAC_EVCTRL_STARTEI0;
+    DAC->DACCTRL[0].reg = DAC_DACCTRL_CCTRL_CC12M | DAC_DACCTRL_ENABLE; // | DAC_DACCTRL_LEFTADJ;
     DAC->CTRLB.reg = DAC_CTRLB_REFSEL_VREFPU;
 #endif
 
@@ -139,7 +149,7 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
 #endif
     tc->COUNT16.CTRLA.bit.RUNSTDBY = 1;
     tc->COUNT16.CTRLA.bit.PRESCALER = 0;
-    tc->COUNT16.EVCTRL.reg = TC_EVCTRL_OVFEO;
+    //tc->COUNT16.EVCTRL.reg = TC_EVCTRL_OVFEO;
     // t->COUNT16.CTRLC.reg = 0x00;     // compare mode
     tc->COUNT16.CTRLBCLR.bit.DIR = 1; // count up
 
@@ -148,7 +158,6 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
 
     setSampleRate(sampleRate);
 
-    pin._setMux(MUX_B);
 
     DmaFactory factory;
     dmaInstance = factory.allocate();
