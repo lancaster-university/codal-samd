@@ -675,9 +675,9 @@ int ZPin::enableRiseFallEvents(int eventType)
 #else
         if (!chan)
         {
-            EICFactory eic;
-            this->chan = eic.getInstance(pin->extint_channel);
-            CODAL_ASSERT(chan != NULL);
+            EICFactory* factory = EICFactory::getInstance();
+            this->chan = factory->getChannel(pin->extint_channel);
+            CODAL_ASSERT(chan != NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
         }
 
         // pinmux a is zero (true for both samd21 and 51)

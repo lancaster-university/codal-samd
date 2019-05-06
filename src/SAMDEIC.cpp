@@ -94,7 +94,7 @@ void EICFactory::enable()
     eic_set_enable(true);
 }
 
-EICChannel* EICFactory::getInstance(int channel)
+EICChannel* EICFactory::getChannel(int channel)
 {
     if (instance->instances[channel] == NULL)
     {

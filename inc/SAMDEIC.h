@@ -136,7 +136,7 @@ class EICFactory
      *
      * @returns an eic channel instance, or NULL if already in use.
      **/
-    EICChannel* getInstance(int channel);
+    EICChannel* getChannel(int channel);
 
     /**
      * Free's an EICChannel instance.

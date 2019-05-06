@@ -117,8 +117,8 @@ int DmaInstance::getBytesTransferred()
     btcnt = DMAC->ACTIVE.bit.BTCNT;
     DMAC->CHID.bit.ID = chan; // Select our allocated channel
 #else
-    DmacChannel *channel = &DMAC->Channel[channel_number];
-    btcnt = channel->BTCNT.reg;
+    DmacDescriptor& desc = DmaFactory::instance->getDescriptor(channel_number);
+    btcnt = desc.BTCNT.reg;
 #endif
     return this->bufferSize - btcnt;
 }

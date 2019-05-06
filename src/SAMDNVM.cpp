@@ -2,6 +2,7 @@
 #include "ErrorNo.h"
 #include "CodalDmesg.h"
 
+#ifdef SAMD21
 using namespace codal;
 
 // this actually generates less code than a function
@@ -138,3 +139,4 @@ int SAMDNVM::write(uint32_t* dst, uint32_t* source, uint32_t size)
     flash_write_words(dst, source, size);
     return DEVICE_OK;
 }
+#endif
