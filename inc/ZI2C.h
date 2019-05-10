@@ -56,6 +56,9 @@ public:
      */
     ZI2C(ZPin &sda, ZPin &scl);
 
+    int enable();
+    int disable();
+
     /** Set the frequency of the I2C interface
      *
      * @param frequency The bus frequency in hertz
