@@ -36,6 +36,7 @@ RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE1 "${CMAKE_CURRENT_SOURCE_DIR}/src" "*.c")
 #RECURSIVE_FIND_FILE(TOP_LEVEL_SOURCE "${ASF}" "*.[cs]")
 
 LIST(APPEND TOP_LEVEL_SOURCE
+    "${SP2}/adc.c"
     "${SP}/clocks.c"
     "${SP2}/clocks.c"
     "${SP}/external_interrupts.c"
