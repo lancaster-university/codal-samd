@@ -51,9 +51,7 @@ void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
     // if we have a cb member function, we invoke
     // otherwise fire the event for any listeners.
     if (this->cb)
-        this->cb->fire(evt);
-    else
-        evt.fire();
+        this->cb(mode);
 }
 
 void ZSingleWireSerial::configureRxInterrupt(int enable)
