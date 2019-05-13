@@ -46,8 +46,8 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
     else
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
-    DMESG("SDA pad %d, idx %d, fn: %d", sercomIdx, sda_fun);
-    DMESG("SCL pad %d, idx %d, fn: %d", sercomIdx, scl_fun);
+    DMESG("SDA idx %d, fn: %d", sercomIdx, sda_fun);
+    DMESG("SCL idx %d, fn: %d", sercomIdx, scl_fun);
 
     sda._setMux(sda_fun);
     scl._setMux(scl_fun);
@@ -56,10 +56,13 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
     samd_peripherals_sercom_clock_init(i2c_sercom, sercomIdx);
     int ret = 0;
     ret = i2c_m_sync_init(&i2c, i2c_sercom);
+    CODAL_ASSERT(ret == 0, ret);
     DMESG("INIT ret: %d",ret);
     ret = i2c_m_sync_set_baudrate(&i2c, 0, 100); // set i2c freq to 100khz
+    CODAL_ASSERT(ret == 0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
     DMESG("baud ret: %d",ret);
     ret = i2c_m_sync_enable(&i2c);
+    CODAL_ASSERT(ret == 0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
     DMESG("en ret: %d",ret);
 }
 
