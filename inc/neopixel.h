@@ -50,16 +50,12 @@
 uint64_t next_start_tick_ms = 0;
 uint32_t next_start_tick_us = 1000;
 
-void neopixel_send_buffer(Pin& p, uint8_t *data, uint32_t length) {
+void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
     // This is adapted directly from the Adafruit NeoPixel library SAMD21G18A code:
     // https://github.com/adafruit/Adafruit_NeoPixel/blob/master/Adafruit_NeoPixel.cpp
     uint8_t  *ptr, *end, p, bitMask;
     uint32_t  pinMask;
     PortGroup* port;
-
-    // This must be called while interrupts are on in case we're waiting for a
-    // future ms tick.
-    wait_until(next_start_tick_ms, next_start_tick_us);
 
     // Turn off interrupts of any kind during timing-sensitive code.
     target_disable_irq();
@@ -89,10 +85,10 @@ void neopixel_send_buffer(Pin& p, uint8_t *data, uint32_t length) {
     hri_nvmctrl_set_CTRLA_CACHEDIS1_bit(NVMCTRL);
    #endif
 
-    uint32_t pin = digitalinout->pin->number;
-    port    =  &PORT->Group[GPIO_PORT(pin)];  // Convert GPIO # to port register
-    pinMask =  (1UL << (pin.name % 32));  // From port_pin_set_output_level ASF code.
-    ptr     =  data;
+    uint32_t pin_name = pin.name;
+    port    =  &PORT->Group[GPIO_PORT(pin_name)];  // Convert GPIO # to port register
+    pinMask =  (1UL << (pin_name % 32));  // From port_pin_set_output_level ASF code.
+    ptr     =  (uint8_t*)data;
     end     =  ptr + length;
     p       = *ptr++;
     bitMask =  0x80;
