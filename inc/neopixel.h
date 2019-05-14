@@ -24,6 +24,7 @@
  * THE SOFTWARE.
  */
 #include "hpl_gpio.h"
+#include "hal_gpio.h"
 
 #ifdef SAMD51
 #include "hri/hri_cmcc_d51.h"
@@ -41,7 +42,6 @@
         "bne.n  loop%=" : [t] "=r"(t) : [c] "I" (cycles)); \
     }
 #endif
-
 // Ensure this code is compiled with -Os. Any other optimization level may change the timing of it
 // and break neopixels.
 #pragma GCC push_options
@@ -53,6 +53,8 @@ uint32_t next_start_tick_us = 1000;
 void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
     // This is adapted directly from the Adafruit NeoPixel library SAMD21G18A code:
     // https://github.com/adafruit/Adafruit_NeoPixel/blob/master/Adafruit_NeoPixel.cpp
+    gpio_set_pin_direction(pin.name, GPIO_DIRECTION_OUT);
+
     uint8_t  *ptr, *end, p, bitMask;
     uint32_t  pinMask;
     PortGroup* port;
