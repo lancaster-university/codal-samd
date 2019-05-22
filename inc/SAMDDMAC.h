@@ -97,6 +97,8 @@ class DmaInstance
     void configure(uint8_t trig_src, DmaBeatSize beat_size, volatile void *src_addr, volatile void *dst_addr);
 
     DmacDescriptor& getDescriptor();
+    DmacDescriptor& getWriteBackDescriptor();
+
     void setDescriptor(DmacDescriptor* d);
 
     int getBytesTransferred();
@@ -131,6 +133,8 @@ class DmaControllerInstance
      */
     DmacDescriptor& getDescriptor(int channel);
 
+    DmacDescriptor& getWriteBackDescriptor(int channel);
+
     friend class DmaFactory;
 };
 
@@ -162,6 +166,8 @@ class DmaFactory
      * @return a valid DMA decriptor, matching a previously allocated channel.
      */
     static DmacDescriptor& getDescriptor(int channel);
+
+    static DmacDescriptor& getWriteBackDescriptor(int channel);
 
     static void free(DmaInstance*);
 };

@@ -83,6 +83,11 @@ DmacDescriptor& DmaInstance::getDescriptor()
     return DmaFactory::instance->getDescriptor(channel_number);
 }
 
+DmacDescriptor& DmaInstance::getWriteBackDescriptor()
+{
+    return DmaFactory::instance->getWriteBackDescriptor(channel_number);
+}
+
 void DmaInstance::setDescriptor(DmacDescriptor* desc)
 {
     DmaFactory::instance->setDescriptor(channel_number, desc);
@@ -117,8 +122,16 @@ int DmaInstance::getBytesTransferred()
     btcnt = DMAC->ACTIVE.bit.BTCNT;
     DMAC->CHID.bit.ID = chan; // Select our allocated channel
 #else
-    DmacDescriptor& desc = DmaFactory::instance->getDescriptor(channel_number);
-    btcnt = desc.BTCNT.reg;
+    DMAC_ACTIVE_Type active;
+    active.reg = DMAC->ACTIVE.reg;
+    if (active.bit.ID == channel_number)
+        btcnt = active.bit.BTCNT;
+    else
+    {
+        DmacDescriptor& desc = DmaFactory::instance->getWriteBackDescriptor(channel_number);
+        btcnt = desc.BTCNT.reg;
+    }
+
 #endif
     return this->bufferSize - btcnt;
 }
