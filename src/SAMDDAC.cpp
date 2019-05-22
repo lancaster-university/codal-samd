@@ -64,7 +64,7 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
     // Put the pin into output mode.
     pin.setDigitalValue(0);
     pin._setMux(MUX_B);
-    CODAL_ASSERT(pin.name == PIN_PA02);
+    CODAL_ASSERT(pin.name == PIN_PA02, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
 #if 0
     // Configure AREFB as MUX_B
@@ -131,7 +131,7 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
             break;
         tc_index++;
     }
-    CODAL_ASSERT(tc_index < TC_INST_NUM);
+    CODAL_ASSERT(tc_index < TC_INST_NUM, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     tc_set_enable(tc, false);
     turn_on_clocks(true, tc_index, CLK_GEN_8MHZ);
@@ -161,7 +161,7 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
 
     DmaFactory factory;
     dmaInstance = factory.allocate();
-    CODAL_ASSERT(dmaInstance != NULL);
+    CODAL_ASSERT(dmaInstance != NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     dmaInstance->onTransferComplete(this);
     dmaInstance->configure(TC3_DMAC_ID_OVF, BeatHalfWord, NULL, (volatile void *)&DAC_DATA);

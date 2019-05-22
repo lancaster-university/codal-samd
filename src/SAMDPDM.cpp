@@ -86,7 +86,7 @@ void SAMD21PDM::connect(DataSink& component)
 SAMD21PDM::SAMD21PDM(ZPin &sd, ZPin &sck, int sampleRate, uint16_t id) : output(*this)
 {
     dma = DmaFactory::allocate();
-    CODAL_ASSERT(dma != NULL);
+    CODAL_ASSERT(dma != NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     this->id = id;
     this->sampleRate = sampleRate;

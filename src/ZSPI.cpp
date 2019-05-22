@@ -226,7 +226,7 @@ void ZSPI::init()
         }
         else
         {
-            CODAL_ASSERT(0);
+            CODAL_ASSERT(0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
             dmaTxCh = NULL;
         }
     }
@@ -283,7 +283,7 @@ int ZSPI::setMode(int mode, int bits)
     _bits = bits;
     needsInit = true;
 
-    CODAL_ASSERT(bits == 8);
+    CODAL_ASSERT(bits == 8, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     return DEVICE_OK;
 }
@@ -319,7 +319,7 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
 
     // make sure buffers are not on the stack
     uint8_t getSP = 0;
-    CODAL_ASSERT(txBuffer < &getSP && rxBuffer < &getSP);
+    CODAL_ASSERT(txBuffer < &getSP && rxBuffer < &getSP, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     this->doneHandler = doneHandler;
     this->doneHandlerArg = arg;
@@ -333,8 +333,8 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
         txBuffer = rxBuffer;
     }
 
-    CODAL_ASSERT(txSize > 0);
-    CODAL_ASSERT(rxSize == 0 || txSize == rxSize);
+    CODAL_ASSERT(txSize > 0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+    CODAL_ASSERT(rxSize == 0 || txSize == rxSize, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     if (rxSize)
         dmaRxCh->transfer(NULL, rxBuffer, rxSize);
