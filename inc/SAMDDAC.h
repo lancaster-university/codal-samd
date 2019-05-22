@@ -47,12 +47,13 @@ private:
     Tc*         tc;
 
     DmaInstance* dmaInstance;
+    void prefill();
 
 public:
 
     // The stream component that is serving our data
     DataSource  &upstream;
-    ManagedBuffer output;
+    ManagedBuffer buffer, nextBuffer;
 
     /**
       * Constructor for an instance of a DAC,
