@@ -73,7 +73,7 @@ namespace codal
 
         virtual int sendBreak();
 
-        void dmaTransferComplete(DmaCode c);
+        void dmaTransferComplete(DmaCode c) override;
     };
 }
 
