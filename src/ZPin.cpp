@@ -169,8 +169,7 @@ void ZPin::_setMux(int mux, bool isInput)
 int ZPin::setDigitalValue(int value)
 {
     // Ensure we have a valid value.
-    if (value < 0 || value > 1)
-        return DEVICE_INVALID_PARAMETER;
+    value = ((value > 0) ? 1 : 0);
 
     // Move into a Digital input state if necessary.
     if (!(status & IO_STATUS_DIGITAL_OUT))
