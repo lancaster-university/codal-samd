@@ -92,7 +92,7 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     Sercom* instance = sercom_insts[this->instance_number];
-    DMESG("SWS pad %d, idx %d, fn: %d", 0, this->instance_number, this->pinmux);
+    DMESG("SWS idx %d, fn: %d", this->instance_number, this->pinmux);
 
     this->id = DEVICE_ID_SERIAL;
     sws_instance = this;
@@ -117,11 +117,17 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     usart_rx_dma->configure(sercom_trigger_src(this->instance_number, false), BeatByte, (volatile void*)&CURRENT_USART->USART.DATA.reg, NULL);
 
     setBaud(115200);
+
+    status = 0;
 }
 
 int ZSingleWireSerial::setBaud(uint32_t baud)
 {
-    CURRENT_USART->USART.BAUD.reg = 65536 - ((uint64_t)65536 * 16 * baud) / CONF_GCLK_SERCOM0_CORE_FREQUENCY;
+#ifdef SERCOM_100MHZ_CLOCK
+    CURRENT_USART->USART.BAUD.reg = 65536 - ((uint64_t)65536 * 16 * baud) / 100000000;
+#else
+    CURRENT_USART->USART.BAUD.reg = 65536 - ((uint64_t)65536 * 16 * baud) / CONF_GCLK_SERCOM0_CORE_FREQUENCY;;
+#endif
     this->baud = baud;
     return DEVICE_OK;
 }
@@ -164,6 +170,9 @@ int ZSingleWireSerial::configureTx(int enable)
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 0;
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
+#ifdef SAMD51
+        CURRENT_USART->USART.CTRLA.bit.DORD = 1;
+#endif
         CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
         CURRENT_USART->USART.CTRLA.bit.TXPO = this->pad;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0;
@@ -199,6 +208,9 @@ int ZSingleWireSerial::configureRx(int enable)
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 0;
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
+#ifdef SAMD51
+        CURRENT_USART->USART.CTRLA.bit.DORD = 1;
+#endif
         CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
         CURRENT_USART->USART.CTRLA.bit.RXPO = this->pad;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0; // 8 BIT
