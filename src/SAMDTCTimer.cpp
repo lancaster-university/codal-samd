@@ -333,13 +333,23 @@ uint32_t SAMDTCTimer::captureCounter()
     switch (bitMode)
     {
         case BitMode8:
-            tc->COUNT8.CTRLBSET.bit.CMD = 0x04;
-            while (tc->COUNT8.SYNCBUSY.bit.CTRLB);
+            // WTF? for some reason a double read is required...
+            // COUNT is never set? Am I doing something wrong!?
+            // TODO: work out what the heck is wrong
+            tc->COUNT16.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+            while(tc->COUNT32.SYNCBUSY.bit.CTRLB);
+            tc->COUNT16.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+            while(tc->COUNT16.SYNCBUSY.bit.CTRLB);
             elapsed = tc->COUNT8.COUNT.reg;
             break;
         case BitMode16:
-            tc->COUNT16.CTRLBSET.bit.CMD = 0x04;
-            while (tc->COUNT16.SYNCBUSY.bit.CTRLB);
+            // WTF? for some reason a double read is required...
+            // COUNT is never set? Am I doing something wrong!?
+            // TODO: work out what the heck is wrong
+            tc->COUNT16.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+            while(tc->COUNT32.SYNCBUSY.bit.CTRLB);
+            tc->COUNT16.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+            while(tc->COUNT16.SYNCBUSY.bit.CTRLB);
             elapsed = tc->COUNT16.COUNT.reg;
             break;
         case BitMode24:
@@ -354,6 +364,7 @@ uint32_t SAMDTCTimer::captureCounter()
             tc->COUNT32.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
             while(tc->COUNT32.SYNCBUSY.bit.CTRLB);
             elapsed = tc->COUNT32.COUNT.reg;
+
             break;
     }
 #elif SAMD21
