@@ -106,7 +106,7 @@ void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
         asm("nop; nop;");
         #endif
         #ifdef SAMD51
-        delay_cycles(2);
+        system_timer_wait_cycles(2);
         #endif
         if((p & bitMask) != 0) {
             // This is the high delay unique to a one bit.
@@ -115,7 +115,7 @@ void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
             asm("nop; nop; nop; nop; nop; nop; nop;");
             #endif
             #ifdef SAMD51
-            delay_cycles(3);
+            system_timer_wait_cycles(3);
             #endif
             *clr = pinMask;
         } else {
@@ -126,7 +126,7 @@ void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
             asm("nop; nop;");
             #endif
             #ifdef SAMD51
-            delay_cycles(2);
+            system_timer_wait_cycles(2);
             #endif
         }
         if((bitMask >>= 1) != 0) {
@@ -137,7 +137,7 @@ void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
             asm("nop; nop; nop; nop; nop;");
             #endif
             #ifdef SAMD51
-            delay_cycles(4);
+            system_timer_wait_cycles(4);
             #endif
         } else {
             if(ptr >= end) break;
@@ -148,7 +148,7 @@ void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
             // above operations take.
             // For the SK6812 its 0.6us +- 0.15us
             #ifdef SAMD51
-            delay_cycles(3);
+            system_timer_wait_cycles(3);
             #endif
         }
     }
@@ -168,7 +168,6 @@ void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
 
     // Turn on interrupts after timing-sensitive code.
     target_enable_irq();
-
 }
 
 #pragma GCC pop_options
