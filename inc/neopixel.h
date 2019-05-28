@@ -55,6 +55,9 @@ void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
     // https://github.com/adafruit/Adafruit_NeoPixel/blob/master/Adafruit_NeoPixel.cpp
     gpio_set_pin_direction(pin.name, GPIO_DIRECTION_OUT);
 
+    // Need to wait at least Treset (50uS) after pulling the pin low
+    system_timer_wait_us(52);
+
     uint8_t  *ptr, *end, p, bitMask;
     uint32_t  pinMask;
     PortGroup* port;
