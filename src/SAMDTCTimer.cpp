@@ -6,9 +6,9 @@
     #define SAMD_SYNC_BUSY_16() while (tc->COUNT16.STATUS.bit.SYNCBUSY)
     #define SAMD_SYNC_BUSY_32() while (tc->COUNT32.STATUS.bit.SYNCBUSY)
 #else
-    #define SAMD_SYNC_BUSY_8() ((void)0)
-    #define SAMD_SYNC_BUSY_16() ((void)0)
-    #define SAMD_SYNC_BUSY_32() ((void)0)
+    #define SAMD_SYNC_BUSY_8() while (tc->COUNT16.SYNCBUSY.reg != 0)
+    #define SAMD_SYNC_BUSY_16() while (tc->COUNT16.SYNCBUSY.reg != 0)
+    #define SAMD_SYNC_BUSY_32() while (tc->COUNT16.SYNCBUSY.reg != 0)
 #endif
 
 #define PRESCALE_VALUE_MAX          8
@@ -18,6 +18,16 @@ const static uint16_t prescalerDivison[PRESCALE_VALUE_MAX] = { 1, 2, 4, 8, 16, 6
 using namespace codal;
 
 static SAMDTCTimer *instances[TC_INST_NUM] = { 0 };
+
+void enable_all_clocks()
+{
+    enable_clock_generator(CLK_GEN_8MHZ, CLOCK_48MHZ, 6);
+
+    uint8_t tc_index = 0;
+
+    while (tc_index < TC_INST_NUM)
+        turn_on_clocks(true, tc_index++, CLK_GEN_8MHZ);
+}
 
 void tc_irq_handler(uint8_t index)
 {
@@ -85,7 +95,6 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
     this->irqN = irqn;
 
     // 48MHz / 6 == 8MhZ
-    enable_clock_generator(CLK_GEN_8MHZ, CLOCK_48MHZ, 6);
 
     // find the tx index in the insts array
     uint8_t tc_index = 0;
@@ -102,29 +111,29 @@ SAMDTCTimer::SAMDTCTimer(Tc* tc, uint8_t irqn) : LowLevelTimer(2)
 
     DMESG("tc_ind: %d clk_index: %d", tc_index, CLK_GEN_8MHZ);
 
-    // 32 bit mode does not work, but don't have the time to figure out why
-    // I think i've tracked it down to TC1 (slave to TC0) not being enabled.
-    // configure the clks for the current timer.
-    turn_on_clocks(true, tc_index, CLK_GEN_8MHZ);
-
-    // disable the timer
-    disable();
-    tc_reset(tc);
-
     bool inited = false;
 
     for (int index = 0; index < TC_INST_NUM; index++)
         if (instances[index])
             inited = true;
 
-    if (!inited)
-        tc_set_app_handler(tc_irq_handler);
-
     instances[tc_index] = this;
+
+    if (!inited)
+    {
+        tc_set_app_handler(tc_irq_handler);
+        // we just enable all clocks because users may configure timers
+        // to be 32-bit at run time, and they won't work if not clocked...
+        enable_all_clocks();
+    }
+
+    // disable the timer
+    disable();
+    tc_reset(tc);
 
     setBitMode(BitMode16);
 
-    // configure
+    // configure direction, we always want to count up to
     switch (bitMode)
     {
         case BitMode8:
@@ -324,26 +333,41 @@ uint32_t SAMDTCTimer::captureCounter()
     switch (bitMode)
     {
         case BitMode8:
-            tc->COUNT8.CTRLBSET.bit.CMD = 0x04;
-            while (tc->COUNT8.SYNCBUSY.bit.CTRLB);
+            // WTF? for some reason a double read is required...
+            // COUNT is never set? Am I doing something wrong!?
+            // TODO: work out what the heck is wrong
+            tc->COUNT16.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+            while(tc->COUNT32.SYNCBUSY.bit.CTRLB);
+            tc->COUNT16.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+            while(tc->COUNT16.SYNCBUSY.bit.CTRLB);
             elapsed = tc->COUNT8.COUNT.reg;
             break;
         case BitMode16:
-            tc->COUNT16.CTRLBSET.bit.CMD = 0x04;
-            while (tc->COUNT16.SYNCBUSY.bit.CTRLB);
+            // WTF? for some reason a double read is required...
+            // COUNT is never set? Am I doing something wrong!?
+            // TODO: work out what the heck is wrong
+            tc->COUNT16.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+            while(tc->COUNT32.SYNCBUSY.bit.CTRLB);
+            tc->COUNT16.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+            while(tc->COUNT16.SYNCBUSY.bit.CTRLB);
             elapsed = tc->COUNT16.COUNT.reg;
             break;
         case BitMode24:
             // make the compiler shut up
             break;
         case BitMode32:
-            tc->COUNT32.CTRLBSET.bit.CMD = 0x04;
-            while (tc->COUNT32.SYNCBUSY.bit.CTRLB);
+            // WTF? for some reason a double read is required...
+            // COUNT is never set? Am I doing something wrong!?
+            // TODO: work out what the heck is wrong
+            tc->COUNT32.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+            while(tc->COUNT32.SYNCBUSY.bit.CTRLB);
+            tc->COUNT32.CTRLBSET.reg = TC_CTRLBSET_CMD_READSYNC;
+            while(tc->COUNT32.SYNCBUSY.bit.CTRLB);
             elapsed = tc->COUNT32.COUNT.reg;
+
             break;
     }
 #elif SAMD21
-
     switch (bitMode)
     {
         case BitMode8:
@@ -422,14 +446,17 @@ int SAMDTCTimer::setBitMode(TimerBitMode t)
     {
         case BitMode8:
             tc->COUNT8.CTRLA.bit.MODE = 0x1; // 8 bit operation
+            SAMD_SYNC_BUSY_16();
             break;
         case BitMode16:
             tc->COUNT16.CTRLA.bit.MODE = 0x0; // 16 bit operation
+            SAMD_SYNC_BUSY_16();
             break;
         case BitMode24:
             return DEVICE_INVALID_PARAMETER;
         case BitMode32:
             tc->COUNT32.CTRLA.bit.MODE = 0x2; // 32 bit operation
+            SAMD_SYNC_BUSY_16();
             break;
     }
 

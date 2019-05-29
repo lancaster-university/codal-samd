@@ -22,6 +22,15 @@ using namespace codal;
 
 #define CURRENT_USART ((Sercom*)(USART_INSTANCE.hw))
 
+static ZSingleWireSerial* sws_instance = NULL;
+
+static void error_callback(struct _usart_async_device *device)
+{
+    // flag any error to the dma handler.
+    if (sws_instance)
+        sws_instance->dmaTransferComplete(DMA_ERROR);
+}
+
 void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
 {
     uint16_t mode = 0;
@@ -42,9 +51,7 @@ void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
     // if we have a cb member function, we invoke
     // otherwise fire the event for any listeners.
     if (this->cb)
-        this->cb->fire(evt);
-    else
-        evt.fire();
+        this->cb(mode);
 }
 
 void ZSingleWireSerial::configureRxInterrupt(int enable)
@@ -85,12 +92,17 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     Sercom* instance = sercom_insts[this->instance_number];
-    DMESG("SWS pad %d, idx %d, fn: %d", 0, this->instance_number, this->pinmux);
+    DMESG("SWS idx %d, fn: %d", this->instance_number, this->pinmux);
 
     this->id = DEVICE_ID_SERIAL;
+    sws_instance = this;
 
     samd_peripherals_sercom_clock_init(instance, instance_number);
     _usart_async_init(&USART_INSTANCE, instance);
+
+    // enable error callback to abort dma when an error is detected (error bit is not linked to dma unfortunately).
+    USART_INSTANCE.usart_cb.error_cb = error_callback;
+    _usart_async_set_irq_state(&USART_INSTANCE, USART_ASYNC_ERROR, true);
 
     DmaFactory factory;
     usart_tx_dma = factory.allocate();
@@ -105,12 +117,17 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     usart_rx_dma->configure(sercom_trigger_src(this->instance_number, false), BeatByte, (volatile void*)&CURRENT_USART->USART.DATA.reg, NULL);
 
     setBaud(115200);
+
+    status = 0;
 }
 
 int ZSingleWireSerial::setBaud(uint32_t baud)
 {
-    uint32_t val = _usart_async_calculate_baud_rate(baud, CONF_GCLK_SERCOM0_CORE_FREQUENCY, 16, USART_BAUDRATE_ASYNCH_ARITHMETIC, 0);
-    _usart_async_set_baud_rate(&USART_INSTANCE, val);
+#ifdef SERCOM_100MHZ_CLOCK
+    CURRENT_USART->USART.BAUD.reg = 65536 - ((uint64_t)65536 * 16 * baud) / 100000000;
+#else
+    CURRENT_USART->USART.BAUD.reg = 65536 - ((uint64_t)65536 * 16 * baud) / CONF_GCLK_SERCOM0_CORE_FREQUENCY;;
+#endif
     this->baud = baud;
     return DEVICE_OK;
 }
@@ -153,6 +170,9 @@ int ZSingleWireSerial::configureTx(int enable)
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 0;
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
+#ifdef SAMD51
+        CURRENT_USART->USART.CTRLA.bit.DORD = 1;
+#endif
         CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
         CURRENT_USART->USART.CTRLA.bit.TXPO = this->pad;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0;
@@ -188,6 +208,9 @@ int ZSingleWireSerial::configureRx(int enable)
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 0;
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
+#ifdef SAMD51
+        CURRENT_USART->USART.CTRLA.bit.DORD = 1;
+#endif
         CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
         CURRENT_USART->USART.CTRLA.bit.RXPO = this->pad;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0; // 8 BIT
@@ -275,6 +298,22 @@ int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
     usart_rx_dma->transfer(NULL, data, len);
 
     return DEVICE_OK;
+}
+
+int ZSingleWireSerial::getBytesReceived()
+{
+    if (!(status & RX_CONFIGURED))
+        return DEVICE_INVALID_STATE;
+
+    return usart_rx_dma->getBytesTransferred();
+}
+
+int ZSingleWireSerial::getBytesTransmitted()
+{
+    if (!(status & TX_CONFIGURED))
+        return DEVICE_INVALID_STATE;
+
+    return usart_tx_dma->getBytesTransferred();
 }
 
 int ZSingleWireSerial::abortDMA()

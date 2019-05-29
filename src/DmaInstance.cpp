@@ -62,9 +62,6 @@ void DmaInstance::trigger(DmaCode c)
 void DmaInstance::abort()
 {
     disable();
-
-    if (this->cb)
-        this->cb->dmaTransferComplete(DMA_ERROR);
 }
 
 /**
@@ -86,6 +83,11 @@ DmacDescriptor& DmaInstance::getDescriptor()
     return DmaFactory::instance->getDescriptor(channel_number);
 }
 
+DmacDescriptor& DmaInstance::getWriteBackDescriptor()
+{
+    return DmaFactory::instance->getWriteBackDescriptor(channel_number);
+}
+
 void DmaInstance::setDescriptor(DmacDescriptor* desc)
 {
     DmaFactory::instance->setDescriptor(channel_number, desc);
@@ -99,6 +101,8 @@ void DmaInstance::transfer(const void *src_addr, void *dst_addr, uint32_t len)
 
     descriptor.BTCNT.bit.BTCNT = len >> descriptor.BTCTRL.bit.BEATSIZE;
 
+    this->bufferSize = len >> descriptor.BTCTRL.bit.BEATSIZE;
+
     if (src_addr)
         descriptor.SRCADDR.reg = (uint32_t)src_addr + len;
     if (dst_addr)
@@ -107,6 +111,29 @@ void DmaInstance::transfer(const void *src_addr, void *dst_addr, uint32_t len)
     enable();
 
     target_enable_irq();
+}
+
+int DmaInstance::getBytesTransferred()
+{
+    uint32_t btcnt = 0;
+#ifdef SAMD21
+    uint8_t chan = DMAC->CHID.bit.ID;
+    DMAC->CHID.bit.ID = channel_number; // Select our allocated channel
+    btcnt = DMAC->ACTIVE.bit.BTCNT;
+    DMAC->CHID.bit.ID = chan; // Select our allocated channel
+#else
+    DMAC_ACTIVE_Type active;
+    active.reg = DMAC->ACTIVE.reg;
+    if (active.bit.ID == channel_number)
+        btcnt = active.bit.BTCNT;
+    else
+    {
+        DmacDescriptor& desc = DmaFactory::instance->getWriteBackDescriptor(channel_number);
+        btcnt = desc.BTCNT.reg;
+    }
+
+#endif
+    return this->bufferSize - btcnt;
 }
 
 void DmaInstance::configure(uint8_t trig_src, DmaBeatSize beat_size, volatile void *src_addr, volatile void *dst_addr)

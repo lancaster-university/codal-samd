@@ -42,18 +42,22 @@ DEALINGS IN THE SOFTWARE.
 
 extern "C"
 {
+    #include "external_interrupts.h"
     #include "adc.h"
     #include "clocks.h"
 }
 
 #define IO_STATUS_CAN_READ                                                                         \
-    (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
+    (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE)
 
 #define MUX_B           1
 
-
 namespace codal
 {
+#ifdef SAMD21
+    static bool eic_enabled = false;
+    static ZPin* instances[EIC_CHANNEL_COUNT] = { NULL };
+#endif
 
 struct ZEventConfig
 {
@@ -114,14 +118,20 @@ void ZPin::disconnect()
         this->pwmCfg = NULL;
     }
 
-    if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE))
+    if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE))
     {
+        // for the samd21, we simply disable the isr, memory is retained.
+#ifdef SAMD21
+        const mcu_pin_obj_t* pin = samd_peripherals_get_pin(name);
+        configure_eic_channel(pin->extint_channel, 0);
+#else
         this->chan->disable();
         this->chan = NULL;
 
         if (this->evCfg)
             delete this->evCfg;
         this->evCfg = NULL;
+#endif
     }
 
     if (this->status & IO_STATUS_TOUCH_IN)
@@ -158,8 +168,7 @@ void ZPin::_setMux(int mux, bool isInput)
 int ZPin::setDigitalValue(int value)
 {
     // Ensure we have a valid value.
-    if (value < 0 || value > 1)
-        return DEVICE_INVALID_PARAMETER;
+    value = ((value > 0) ? 1 : 0);
 
     // Move into a Digital input state if necessary.
     if (!(status & IO_STATUS_DIGITAL_OUT))
@@ -191,7 +200,7 @@ int ZPin::getDigitalValue()
 {
     // Move into a Digital input state if necessary.
     if (!(status &
-          (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
+          (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE)))
     {
         disconnect();
         gpio_set_pin_function(name, GPIO_PIN_FUNCTION_OFF);
@@ -587,26 +596,29 @@ void ZPin::pulseWidthEvent(int eventValue)
     this->evCfg->prevPulse = now;
 }
 
+#ifdef SAMD21
+extern "C" void EIC_Handler()
+{
+    uint32_t extint = EIC->INTFLAG.vec.EXTINT;
+    EIC->INTFLAG.vec.EXTINT = extint;
+    for (uint8_t i = 0; i < 16; i++)
+        if ((extint & (1 << i)) && instances[i])
+            instances[i]->pinEventDetected();
+}
+#endif
+
 void ZPin::pinEventDetected()
 {
     bool isRise = gpio_get_pin_level(this->name);
-
-    // as far as I can tell there is no latch for the EIC (kinda sucky)
-    // if events are enabled for both rise and fall, we determine what event occurred, and enable the opposite interrupt
-    // from then on interrupt configuration is swapped.
-    if (chan->getConfiguration() == EICEventsRise)
-        isRise = true;
-
-    if (chan->getConfiguration() == EICEventsFall)
-        isRise = false;
-
-    chan->configure(isRise ? EICEventsFall : EICEventsRise);
 
     if (status & IO_STATUS_EVENT_PULSE_ON_EDGE)
         pulseWidthEvent(isRise ? DEVICE_PIN_EVT_PULSE_LO : DEVICE_PIN_EVT_PULSE_HI);
 
     if (status & IO_STATUS_EVENT_ON_EDGE)
         Event(id, isRise ? DEVICE_PIN_EVT_RISE : DEVICE_PIN_EVT_FALL, 0, CREATE_AND_FIRE);
+
+    if (status & IO_STATUS_INTERRUPT_ON_EDGE)
+        this->gpio_irq(isRise);
 }
 
 /**
@@ -621,7 +633,7 @@ void ZPin::pinEventDetected()
 int ZPin::enableRiseFallEvents(int eventType)
 {
     // if we are in neither of the two modes, configure pin as a TimedInterruptIn.
-    if (!(status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
+    if (!(status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE)))
     {
         if (!(status & IO_STATUS_DIGITAL_IN))
             getDigitalValue();
@@ -633,11 +645,32 @@ int ZPin::enableRiseFallEvents(int eventType)
         if (!evCfg)
             evCfg = new ZEventConfig;
 
+        // this code is optimised for servicing pin interrupts on a slower processor (SAMD21)
+#ifdef SAMD21
+
+        if (!eic_enabled)
+        {
+            NVIC_SetPriority(EIC_IRQn,0);
+            eic_enabled = true;
+
+            turn_on_external_interrupt_controller();
+            eic_reset();
+            eic_set_enable(true);
+        }
+
+        instances[pin->extint_channel] = this;
+        // last param is ignored as we override EIC_Handlers...
+        // 3 is rise fall
+        turn_on_eic_channel(pin->extint_channel, 3, EIC_HANDLER_APP);
+
+        // pinmux a is zero (true for both samd21 and 51)
+        gpio_set_pin_function(name, PINMUX(name, 0));
+#else
         if (!chan)
         {
-            EICFactory eic;
-            this->chan = eic.getInstance(pin->extint_channel);
-            CODAL_ASSERT(chan != NULL);
+            EICFactory* factory = EICFactory::getInstance();
+            this->chan = factory->getChannel(pin->extint_channel);
+            CODAL_ASSERT(chan != NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
         }
 
         // pinmux a is zero (true for both samd21 and 51)
@@ -645,15 +678,18 @@ int ZPin::enableRiseFallEvents(int eventType)
 
         this->chan->setChangeCallback(this);
         this->chan->enable(EICEventsRiseFall);
+#endif
     }
 
-    status &= ~(IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE);
+    status &= ~(IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE);
 
     // set our status bits accordingly.
     if (eventType == DEVICE_PIN_EVENT_ON_EDGE)
         status |= IO_STATUS_EVENT_ON_EDGE;
     else if (eventType == DEVICE_PIN_EVENT_ON_PULSE)
         status |= IO_STATUS_EVENT_PULSE_ON_EDGE;
+    else if (eventType == DEVICE_PIN_INTERRUPT_ON_EDGE)
+        status |= IO_STATUS_INTERRUPT_ON_EDGE;
 
     return DEVICE_OK;
 }
@@ -666,7 +702,7 @@ int ZPin::enableRiseFallEvents(int eventType)
  */
 int ZPin::disableEvents()
 {
-    if (status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_TOUCH_IN))
+    if (status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE | IO_STATUS_TOUCH_IN))
     {
         disconnect();
         getDigitalValue();
@@ -715,6 +751,7 @@ int ZPin::eventOn(int eventType)
     {
     case DEVICE_PIN_EVENT_ON_EDGE:
     case DEVICE_PIN_EVENT_ON_PULSE:
+    case DEVICE_PIN_INTERRUPT_ON_EDGE:
         enableRiseFallEvents(eventType);
         break;
 

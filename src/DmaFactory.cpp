@@ -182,6 +182,14 @@ DmacDescriptor &DmaControllerInstance::getDescriptor(int channel)
     return this->descriptors[0];
 }
 
+DmacDescriptor &DmaControllerInstance::getWriteBackDescriptor(int channel)
+{
+    if (channel < DMA_DESCRIPTOR_COUNT)
+        return this->descriptors[channel];
+
+    return this->descriptors[0];
+}
+
 void DmaFactory::instantiate()
 {
     if (instance)
