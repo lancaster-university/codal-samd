@@ -106,7 +106,7 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id, uin
 #ifdef SAMD51
     //DAC->EVCTRL.reg |= DAC_EVCTRL_STARTEI0;
     DAC->DACCTRL[0].reg = DAC_DACCTRL_CCTRL_CC12M | DAC_DACCTRL_ENABLE; // | DAC_DACCTRL_LEFTADJ;
-    DAC->CTRLB.reg = flags & SAMDDAC_FLAG_USE_VDDANA ? DAC_CTRLB_REFSEL_VDDANA : DAC_CTRLB_REFSEL_VREFPU;
+    DAC->CTRLB.reg = (flags & 3) << 1;
 #endif
 
     // Re-enable the DAC
