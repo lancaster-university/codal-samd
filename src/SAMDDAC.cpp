@@ -54,7 +54,7 @@ extern "C"
 
 #undef ENABLE
 
-SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : upstream(source)
+SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id, uint32_t flags) : upstream(source)
 {
     this->id = id;
     this->active = false;
@@ -106,7 +106,7 @@ SAMDDAC::SAMDDAC(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : u
 #ifdef SAMD51
     //DAC->EVCTRL.reg |= DAC_EVCTRL_STARTEI0;
     DAC->DACCTRL[0].reg = DAC_DACCTRL_CCTRL_CC12M | DAC_DACCTRL_ENABLE; // | DAC_DACCTRL_LEFTADJ;
-    DAC->CTRLB.reg = DAC_CTRLB_REFSEL_VREFPU;
+    DAC->CTRLB.reg = flags & SAMDDAC_FLAG_USE_VDDANA ? DAC_CTRLB_REFSEL_VDDANA : DAC_CTRLB_REFSEL_VREFPU;
 #endif
 
     // Re-enable the DAC

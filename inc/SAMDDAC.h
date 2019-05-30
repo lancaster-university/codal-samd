@@ -35,6 +35,9 @@ DEALINGS IN THE SOFTWARE.
 #define SAMDDAC_DEFAULT_FREQUENCY 44100
 #endif
 
+
+#define SAMDDAC_FLAG_USE_VDDANA 0x00000001
+
 using namespace codal;
 
 class SAMDDAC : public CodalComponent, public DmaComponent, public DataSink
@@ -61,7 +64,7 @@ public:
       * @param pin The pin this DAC shoudl output to.
       * @param id The id to use for the message bus when transmitting events.
       */
-    SAMDDAC(ZPin &pin, DataSource &source, int sampleRate = SAMDDAC_DEFAULT_FREQUENCY, uint16_t id = DEVICE_ID_SYSTEM_DAC);
+    SAMDDAC(ZPin &pin, DataSource &source, int sampleRate = SAMDDAC_DEFAULT_FREQUENCY, uint16_t id = DEVICE_ID_SYSTEM_DAC, uint32_t flags = 0);
 
     /**
      * Callback provided when data is ready.
