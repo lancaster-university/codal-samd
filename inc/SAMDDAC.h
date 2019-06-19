@@ -40,6 +40,9 @@ DEALINGS IN THE SOFTWARE.
 #define SAMDDAC_USE_VDDANA DAC_CTRLB_REFSEL_VDDANA_Val
 #define SAMDDAC_USE_VREFPB DAC_CTRLB_REFSEL_VREFPB_Val
 #define SAMDDAC_USE_INTREF DAC_CTRLB_REFSEL_INTREF_Val
+#define SAMDDAC_USE_VREF_DEFAULT SAMDDAC_USE_VREFPU
+#else
+#define SAMDDAC_USE_VREF_DEFAULT 0
 #endif
 
 using namespace codal;
@@ -68,7 +71,7 @@ public:
       * @param pin The pin this DAC shoudl output to.
       * @param id The id to use for the message bus when transmitting events.
       */
-    SAMDDAC(ZPin &pin, DataSource &source, int sampleRate = SAMDDAC_DEFAULT_FREQUENCY, uint16_t id = DEVICE_ID_SYSTEM_DAC, uint32_t refsel = SAMDDAC_USE_VREFPU);
+    SAMDDAC(ZPin &pin, DataSource &source, int sampleRate = SAMDDAC_DEFAULT_FREQUENCY, uint16_t id = DEVICE_ID_SYSTEM_DAC, uint32_t refsel = SAMDDAC_USE_VREF_DEFAULT);
 
     /**
      * Callback provided when data is ready.
