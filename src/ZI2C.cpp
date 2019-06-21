@@ -55,6 +55,7 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
     Sercom* i2c_sercom = sercom_insts[sercomIdx];
     samd_peripherals_sercom_clock_init(i2c_sercom, sercomIdx);
     int ret = 0;
+    memset(&i2c, 0, sizeof(i2c));
     ret = i2c_m_sync_init(&i2c, i2c_sercom);
     CODAL_ASSERT(ret == 0, ret);
     DMESG("INIT ret: %d",ret);
@@ -99,7 +100,7 @@ int ZI2C::setFrequency(uint32_t frequency)
 int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 {
     address = address >> 1;
-    // DMESG("W A: %d L: %d", address, len);
+    DMESG("W A: %d L: %d", address, len);
     struct _i2c_m_msg msg;
 
     int ret = I2C_OK;
@@ -114,7 +115,7 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 
         if (ret == I2C_OK)
         {
-            // DMESG("OK");
+            DMESG("OK");
             return DEVICE_OK;
         }
     }

@@ -233,6 +233,7 @@ SAMDSerial::SAMDSerial(Pin& tx, Pin& rx) : Serial(tx, rx)
     this->instance_number = 255;
     this->baudrate = CODAL_SERIAL_DEFAULT_BAUD_RATE;
     configurePins(tx, rx);
+    memset(&USART_INSTANCE, 0, sizeof(USART_INSTANCE));
 }
 
 SAMDSerial::~SAMDSerial()

@@ -170,6 +170,8 @@ void ZSPI::init()
             // Set up SPI clocks on SERCOM.
             samd_peripherals_sercom_clock_init(sercom, sercomIdx);
 
+            memset(&spi_desc, 0, sizeof(spi_desc));
+
             if (spi_m_sync_init(&spi_desc, sercom) != ERR_NONE)
             {
                 target_panic(901);
