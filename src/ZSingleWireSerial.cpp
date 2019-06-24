@@ -31,6 +31,15 @@ static void error_callback(struct _usart_async_device *device)
         sws_instance->dmaTransferComplete(DMA_ERROR);
 }
 
+static void tx_callback(struct _usart_async_device *)
+{
+}
+
+
+static void rx_callback(struct _usart_async_device *, uint8_t)
+{
+}
+
 void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
 {
     uint16_t mode = 0;
@@ -92,7 +101,7 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     Sercom* instance = sercom_insts[this->instance_number];
-    DMESG("SWS idx %d, fn: %d", this->instance_number, this->pinmux);
+    DMESG("SWS pad %d, idx %d, fn: %d", 0, this->instance_number, this->pinmux);
 
     this->id = DEVICE_ID_SERIAL;
     sws_instance = this;
@@ -104,6 +113,8 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 
     // enable error callback to abort dma when an error is detected (error bit is not linked to dma unfortunately).
     USART_INSTANCE.usart_cb.error_cb = error_callback;
+    USART_INSTANCE.usart_cb.tx_done_cb = tx_callback;
+    USART_INSTANCE.usart_cb.rx_done_cb = rx_callback;
     _usart_async_set_irq_state(&USART_INSTANCE, USART_ASYNC_ERROR, true);
 
     DmaFactory factory;
@@ -119,8 +130,15 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     usart_rx_dma->configure(sercom_trigger_src(this->instance_number, false), BeatByte, (volatile void*)&CURRENT_USART->USART.DATA.reg, NULL);
 
     setBaud(115200);
-
+    
     status = 0;
+
+    NVIC_SetPriority(SERCOM0_IRQn,1);
+    NVIC_SetPriority(SERCOM1_IRQn,1);
+    NVIC_SetPriority(SERCOM2_IRQn,1);
+    NVIC_SetPriority(SERCOM3_IRQn,1);
+    NVIC_SetPriority(SERCOM4_IRQn,1);
+    NVIC_SetPriority(SERCOM5_IRQn,1);
 }
 
 int ZSingleWireSerial::setBaud(uint32_t baud)
