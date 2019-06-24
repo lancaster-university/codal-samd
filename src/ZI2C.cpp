@@ -12,7 +12,7 @@ void ZI2C::reset()
     i2c_m_sync_disable(&this->i2c);
     i2c_m_sync_deinit(&this->i2c);
 
-    DMESG("R RECOVERY!");
+    // DMESG("R RECOVERY!");
     gpio_set_pin_function(this->sda.name, GPIO_PIN_FUNCTION_OFF);
     gpio_set_pin_function(this->scl.name, GPIO_PIN_FUNCTION_OFF);
 
@@ -45,12 +45,12 @@ void ZI2C::reset()
     int ret = 0;
     ret = i2c_m_sync_init(&i2c, this->instance);
     // i2c->STATUS.bit.BUSSTATE;
-    DMESG("INIT ret: %d",ret);
+    // DMESG("INIT ret: %d",ret);
     ret = i2c_m_sync_set_baudrate(&i2c, 0, 100); // set i2c freq to 100khz
-    DMESG("baud ret: %d",ret);
+    // DMESG("baud ret: %d",ret);
 
     ret = i2c_m_sync_enable(&i2c);
-    DMESG("en ret: %d",ret);
+    // DMESG("en ret: %d",ret);
 
     this->instance->I2CM.STATUS.bit.BUSSTATE = 1;
     while(this->instance->I2CM.SYNCBUSY.bit.SYSOP);
@@ -63,8 +63,6 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
 {
     const mcu_pin_obj_t* sda_pin = samd_peripherals_get_pin(sda.name);
     const mcu_pin_obj_t* scl_pin = samd_peripherals_get_pin(scl.name);
-
-    DMESG("SDA %d, SCL %d",sda.name,scl.name);
 
     int sercomIdx = -1;
     int sda_fun = -1;
@@ -108,16 +106,8 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
 
     target_wait_us(3);
 
-    // if (!gpio_get_pin_level(sda_pin->number) || !gpio_get_pin_level(scl_pin->number)) {
-
-    //     while(1);
-    //     // reset_pin_number(sda_pin->number);
-    //     // reset_pin_number(scl_pin->number);
-    //     // mp_raise_RuntimeError(translate("SDA or SCL needs a pull up"));
-    // }
-
-    DMESG("SDA idx %d, fn: %d", sercomIdx, sda_fun);
-    DMESG("SCL idx %d, fn: %d", sercomIdx, scl_fun);
+    // DMESG("SDA idx %d, fn: %d", sercomIdx, sda_fun);
+    // DMESG("SCL idx %d, fn: %d", sercomIdx, scl_fun);
 
     sclMux = scl_fun;
     sdaMux = sda_fun;
@@ -132,14 +122,14 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
     int ret = 0;
     ret = i2c_m_sync_init(&i2c, this->instance);
     // i2c->STATUS.bit.BUSSTATE;
-    DMESG("INIT ret: %d",ret);
+    // DMESG("INIT ret: %d",ret);
     ret = i2c_m_sync_set_baudrate(&i2c, 0, 100); // set i2c freq to 100khz
     CODAL_ASSERT(ret == 0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
-    DMESG("baud ret: %d",ret);
+    // DMESG("baud ret: %d",ret);
 
     ret = i2c_m_sync_enable(&i2c);
     CODAL_ASSERT(ret == 0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
-    DMESG("en ret: %d",ret);
+    // DMESG("en ret: %d",ret);
 
     this->instance->I2CM.STATUS.bit.BUSSTATE = 1;
     while(this->instance->I2CM.SYNCBUSY.bit.SYSOP);
@@ -154,7 +144,7 @@ int ZI2C::setFrequency(uint32_t frequency)
     i2c_m_sync_disable(&i2c);
     int ret = i2c_m_sync_set_baudrate(&i2c, 0, frequency / 1000);
     i2c_m_sync_enable(&i2c);
-    DMESG("SET FREQ: %d, ret: %d", frequency, ret);
+    // DMESG("SET FREQ: %d, ret: %d", frequency, ret);
     return (ret < 0) ? DEVICE_INVALID_PARAMETER : DEVICE_OK;
 }
 
@@ -177,16 +167,6 @@ int ZI2C::setFrequency(uint32_t frequency)
 */
 int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 {
-    int busState = ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE;
-
-    // DMESG("BS %d",busState);
-
-    // if (busState == 0)
-    // {
-    //     DMESG("FORCING STATE");
-    //     ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE = 1;
-    //     while(((Sercom*)&i2c.device.hw)->I2CM.SYNCBUSY.bit.SYSOP);
-    // }
     address = address >> 1;
     // DMESG("W A: %d L: %d", address, len);
     struct _i2c_m_msg msg;
@@ -210,11 +190,11 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 
     if (ret == -5 || ret == -4)
     {
-        DMESG("W RECOVERY!");
+        // DMESG("W RECOVERY!");
         this->reset();
     }
 
-    DMESG("W HAL ERR %d",ret);
+    // DMESG("W HAL ERR %d",ret);
     return DEVICE_I2C_ERROR;
 }
 
@@ -237,17 +217,6 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
      */
 int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 {
-    int busState = ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE;
-
-    // DMESG("BS %d",busState);
-
-    // if (busState == 0)
-    // {
-    //     DMESG("FORCING STATE");
-    //     ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE = 1;
-    //     while(((Sercom*)&i2c.device.hw)->I2CM.SYNCBUSY.bit.SYSOP);
-    // }
-
     address = address >> 1;
     // DMESG("R A: %d, L: %d", address, len);
     struct _i2c_m_msg msg;
@@ -271,11 +240,11 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 
     if (ret == -5 || ret == -4)
     {
-        DMESG("R RECOVERY!");
+        // DMESG("R RECOVERY!");
         this->reset();
     }
 
-    DMESG("R HAL ERR %d",ret);
+    // DMESG("R HAL ERR %d",ret);
     return DEVICE_I2C_ERROR;
 }
 
