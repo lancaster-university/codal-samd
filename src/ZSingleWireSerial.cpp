@@ -133,12 +133,16 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     
     status = 0;
 
+#ifdef SAMD21
     NVIC_SetPriority(SERCOM0_IRQn,1);
     NVIC_SetPriority(SERCOM1_IRQn,1);
     NVIC_SetPriority(SERCOM2_IRQn,1);
     NVIC_SetPriority(SERCOM3_IRQn,1);
     NVIC_SetPriority(SERCOM4_IRQn,1);
     NVIC_SetPriority(SERCOM5_IRQn,1);
+#else
+    // SAMD51 has many more IRQs for SERCOMs
+#endif
 }
 
 int ZSingleWireSerial::setBaud(uint32_t baud)
