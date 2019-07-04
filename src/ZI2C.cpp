@@ -3,16 +3,58 @@
 #include "hal_gpio.h"
 #include "CodalDmesg.h"
 
-extern "C"
-{
-    #include "pins.h"
-    #include "sercom.h"
-    #include "hal_i2c_m_sync.h"
-}
-
 using namespace codal;
 
 #define MAX_I2C_RETRIES     2
+
+void ZI2C::reset()
+{
+    i2c_m_sync_disable(&this->i2c);
+    i2c_m_sync_deinit(&this->i2c);
+
+    // DMESG("R RECOVERY!");
+    gpio_set_pin_function(this->sda.name, GPIO_PIN_FUNCTION_OFF);
+    gpio_set_pin_function(this->scl.name, GPIO_PIN_FUNCTION_OFF);
+
+    gpio_set_pin_direction(this->sda.name, GPIO_DIRECTION_OUT);
+    gpio_set_pin_direction(this->scl.name, GPIO_DIRECTION_OUT);
+    gpio_set_pin_level(this->sda.name,false);
+    gpio_set_pin_level(this->scl.name,false);
+
+    target_wait_us(10);
+
+    gpio_set_pin_level(this->sda.name,true);
+    gpio_set_pin_level(this->scl.name,true);
+
+    for (int i = 0; i < 8; i++)
+    {
+        gpio_set_pin_level(this->scl.name,true);
+        target_wait_us(3);
+        gpio_set_pin_level(this->scl.name,false);
+        target_wait_us(3);
+    }
+
+    gpio_set_pin_function(this->scl.name,GPIO_DIRECTION_IN);
+    gpio_set_pin_function(this->sda.name,GPIO_DIRECTION_IN);
+    gpio_set_pin_pull_mode(this->scl.name, GPIO_PULL_OFF);
+    gpio_set_pin_pull_mode(this->sda.name, GPIO_PULL_OFF);
+    scl._setMux(sclMux);
+    sda._setMux(sdaMux);
+
+    memset(&i2c, 0, sizeof(i2c_m_sync_desc));
+    int ret = 0;
+    ret = i2c_m_sync_init(&i2c, this->instance);
+    // i2c->STATUS.bit.BUSSTATE;
+    // DMESG("INIT ret: %d",ret);
+    ret = i2c_m_sync_set_baudrate(&i2c, 0, 100); // set i2c freq to 100khz
+    // DMESG("baud ret: %d",ret);
+
+    ret = i2c_m_sync_enable(&i2c);
+    // DMESG("en ret: %d",ret);
+
+    this->instance->I2CM.STATUS.bit.BUSSTATE = 1;
+    while(this->instance->I2CM.SYNCBUSY.bit.SYSOP);
+}
 
 /**
  * Constructor.
@@ -21,8 +63,6 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
 {
     const mcu_pin_obj_t* sda_pin = samd_peripherals_get_pin(sda.name);
     const mcu_pin_obj_t* scl_pin = samd_peripherals_get_pin(scl.name);
-
-    DMESG("SDA %d, SCL %d",sda.name,scl.name);
 
     int sercomIdx = -1;
     int sda_fun = -1;
@@ -46,25 +86,53 @@ ZI2C::ZI2C(ZPin &sda, ZPin &scl) : codal::I2C(sda,scl), sda(sda), scl(scl)
     else
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
-    DMESG("SDA idx %d, fn: %d", sercomIdx, sda_fun);
-    DMESG("SCL idx %d, fn: %d", sercomIdx, scl_fun);
+    gpio_set_pin_direction(sda_pin->number, GPIO_DIRECTION_OUT);
+    gpio_set_pin_direction(scl_pin->number, GPIO_DIRECTION_OUT);
+    gpio_set_pin_level(sda_pin->number,true);
+    gpio_set_pin_level(scl_pin->number,true);
+
+    gpio_set_pin_function(sda_pin->number, GPIO_PIN_FUNCTION_OFF);
+    gpio_set_pin_function(scl_pin->number, GPIO_PIN_FUNCTION_OFF);
+    gpio_set_pin_direction(sda_pin->number, GPIO_DIRECTION_IN);
+    gpio_set_pin_direction(scl_pin->number, GPIO_DIRECTION_IN);
+
+    gpio_set_pin_pull_mode(sda_pin->number, GPIO_PULL_DOWN);
+    gpio_set_pin_pull_mode(scl_pin->number, GPIO_PULL_DOWN);
+
+    target_wait_us(10);
+
+    gpio_set_pin_pull_mode(sda_pin->number, GPIO_PULL_OFF);
+    gpio_set_pin_pull_mode(scl_pin->number, GPIO_PULL_OFF);
+
+    target_wait_us(3);
+
+    // DMESG("SDA idx %d, fn: %d", sercomIdx, sda_fun);
+    // DMESG("SCL idx %d, fn: %d", sercomIdx, scl_fun);
+
+    sclMux = scl_fun;
+    sdaMux = sda_fun;
 
     sda._setMux(sda_fun);
     scl._setMux(scl_fun);
 
-    Sercom* i2c_sercom = sercom_insts[sercomIdx];
-    samd_peripherals_sercom_clock_init(i2c_sercom, sercomIdx);
+    this->instance = sercom_insts[sercomIdx];
+    samd_peripherals_sercom_clock_init(this->instance, sercomIdx);
+
+    memset(&i2c, 0, sizeof(i2c_m_sync_desc));
     int ret = 0;
-    memset(&i2c, 0, sizeof(i2c));
-    ret = i2c_m_sync_init(&i2c, i2c_sercom);
-    CODAL_ASSERT(ret == 0, ret);
-    DMESG("INIT ret: %d",ret);
+    ret = i2c_m_sync_init(&i2c, this->instance);
+    // i2c->STATUS.bit.BUSSTATE;
+    // DMESG("INIT ret: %d",ret);
     ret = i2c_m_sync_set_baudrate(&i2c, 0, 100); // set i2c freq to 100khz
     CODAL_ASSERT(ret == 0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
-    DMESG("baud ret: %d",ret);
+    // DMESG("baud ret: %d",ret);
+
     ret = i2c_m_sync_enable(&i2c);
     CODAL_ASSERT(ret == 0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
-    DMESG("en ret: %d",ret);
+    // DMESG("en ret: %d",ret);
+
+    this->instance->I2CM.STATUS.bit.BUSSTATE = 1;
+    while(this->instance->I2CM.SYNCBUSY.bit.SYSOP);
 }
 
 /** Set the frequency of the I2C interface
@@ -76,7 +144,7 @@ int ZI2C::setFrequency(uint32_t frequency)
     i2c_m_sync_disable(&i2c);
     int ret = i2c_m_sync_set_baudrate(&i2c, 0, frequency / 1000);
     i2c_m_sync_enable(&i2c);
-    DMESG("SET FREQ: %d, ret: %d", frequency, ret);
+    // DMESG("SET FREQ: %d, ret: %d", frequency, ret);
     return (ret < 0) ? DEVICE_INVALID_PARAMETER : DEVICE_OK;
 }
 
@@ -120,7 +188,13 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
         }
     }
 
-    DMESG("W HAL ERR %d",ret);
+    if (ret == -5 || ret == -4)
+    {
+        // DMESG("W RECOVERY!");
+        this->reset();
+    }
+
+    // DMESG("W HAL ERR %d",ret);
     return DEVICE_I2C_ERROR;
 }
 
@@ -164,7 +238,13 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
         }
     }
 
-    DMESG("R HAL ERR %d",ret);
+    if (ret == -5 || ret == -4)
+    {
+        // DMESG("R RECOVERY!");
+        this->reset();
+    }
+
+    // DMESG("R HAL ERR %d",ret);
     return DEVICE_I2C_ERROR;
 }
 

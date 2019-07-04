@@ -1,6 +1,6 @@
 [submodule "asf4"]
 	path = asf4
-	url = https://github.com/adafruit/asf4
+	url = https://github.com/lancaster-university/asf4
 [submodule "samd-peripherals"]
 	path = samd-peripherals
-	url = https://github.com/mmoskal/samd-peripherals
+	url = https://github.com/lancaster-university/samd-peripherals
