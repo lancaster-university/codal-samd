@@ -232,8 +232,8 @@ SAMDSerial::SAMDSerial(Pin& tx, Pin& rx) : Serial(tx, rx)
     // set it to a bizarre instance number initially to trigger clock re-init in confg pins
     this->instance_number = 255;
     this->baudrate = CODAL_SERIAL_DEFAULT_BAUD_RATE;
-    configurePins(tx, rx);
     memset(&USART_INSTANCE, 0, sizeof(USART_INSTANCE));
+    configurePins(tx, rx);
 }
 
 SAMDSerial::~SAMDSerial()
