@@ -85,9 +85,15 @@ int SAMDSerial::disableInterrupt(SerialInterruptType t)
     return DEVICE_OK;
 }
 
+#ifdef SERCOM_100MHZ_CLOCK
+#define FREQ 100000000
+#else
+#define FREQ CONF_GCLK_SERCOM0_CORE_FREQUENCY
+#endif
+
 int SAMDSerial::setBaudrate(uint32_t baudrate)
 {
-    uint32_t val = _usart_async_calculate_baud_rate(baudrate, CONF_GCLK_SERCOM0_CORE_FREQUENCY, 16, USART_BAUDRATE_ASYNCH_ARITHMETIC, 0);
+    uint32_t val = _usart_async_calculate_baud_rate(baudrate, FREQ, 16, USART_BAUDRATE_ASYNCH_ARITHMETIC, 0);
     _usart_async_set_baud_rate(&USART_INSTANCE, val);
     this->baudrate = baudrate;
     return DEVICE_OK;
