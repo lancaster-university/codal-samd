@@ -124,6 +124,13 @@ int DmaInstance::getBytesTransferred()
 #else
     DMAC_ACTIVE_Type active;
     active.reg = DMAC->ACTIVE.reg;
+    // datasheet (22.8.13) says BTCNT is only valid if ABUSY
+    // However, the chip doesn't seem to flush BTCNT to write back descriptor when it 
+    // clears ABUSY, so if there are no other active channels, the write back will contain
+    // an old value indefinetely, while ABUSY is cleared.
+    // However, it is also possible that BTCNT contains the count from the previous
+    // transfer, before ABUSY is ever set.
+    // So this number may be flat wrong.
     if (active.bit.ID == channel_number)
         btcnt = active.bit.BTCNT;
     else
