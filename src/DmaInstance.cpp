@@ -55,7 +55,7 @@ void DmaInstance::trigger(DmaCode c)
     disable();
 
     if (this->cb)
-        this->cb->dmaTransferComplete(c);
+        this->cb->dmaTransferComplete(this, c);
 }
 
 
@@ -107,7 +107,7 @@ void DmaInstance::transfer(const void *src_addr, void *dst_addr, uint32_t len)
         descriptor.SRCADDR.reg = (uint32_t)src_addr + len;
     if (dst_addr)
         descriptor.DSTADDR.reg = (uint32_t)dst_addr + len;
-
+    
     enable();
 
     target_enable_irq();

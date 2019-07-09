@@ -48,7 +48,7 @@ namespace codal
 
 #define ZERO(f) memset(&f, 0, sizeof(f))
 
-void ZSPI::dmaTransferComplete(DmaCode)
+void ZSPI::dmaTransferComplete(DmaInstance *, DmaCode)
 {
     LOG("SPI complete D=%p", doneHandler);
 

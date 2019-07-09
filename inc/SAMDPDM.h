@@ -102,7 +102,7 @@ public:
     /**
      * Interrupt callback when playback of DMA buffer has completed
      */
-    virtual void dmaTransferComplete(DmaCode c);
+    virtual void dmaTransferComplete(DmaInstance *dma, DmaCode c) override;
 
     /**
      * Enable this component

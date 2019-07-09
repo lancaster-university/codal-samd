@@ -266,7 +266,7 @@ void SAMD21PDM::decimate(Event)
     pdmDataBuffer = NULL;
 }
 
-void SAMD21PDM::dmaTransferComplete(DmaCode c)
+void SAMD21PDM::dmaTransferComplete(DmaInstance *, DmaCode c)
 {
     if (c == DMA_ERROR)
         while(1) DMESG("POO!!!");

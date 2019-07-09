@@ -273,7 +273,7 @@ extern void debug_flip();
 /**
  * Base implementation of a DMA callback
  */
-void SAMDDAC::dmaTransferComplete(DmaCode c)
+void SAMDDAC::dmaTransferComplete(DmaInstance *, DmaCode)
 {
     if (dataReady == 0)
     {
