@@ -24,9 +24,12 @@ namespace codal
         struct ::_usart_async_device USART_INSTANCE;
         DmaInstance* usart_tx_dma;
         DmaInstance* usart_rx_dma;
-        uint32_t pinmux;
+        Pin *rx;
+        uint8_t pinmux;
         uint8_t instance_number;
         uint8_t pad;
+        uint8_t rx_pinmux;
+        uint8_t rx_pad;
 
         protected:
         virtual void configureRxInterrupt(int enable);
@@ -38,20 +41,14 @@ namespace codal
         public:
 
         /**
-         * This constructor is really ugly, but there isn't currently a nice representation of a model of the device
-         * i.e. a resource manager?
+         * Create a new instance of single wire serial.
          *
-         * @param p the pin instance to use for output
+         * @param p the pin instance to use for output (and input if no rx given)
          *
-         * @param instance the sercom instance that is compatible with p.
-         *
-         * @param instance_number the index into the sercom array (SERCOM0 == index 0)
-         *
-         * @param pinmux the pinmux settings for p, i.e. PA08 has pinmux settings PINMUX_PB08D_SERCOM4_PAD0 for sercom four
-         *
-         * @param pad the pad that the pin is routed through i.e. PA08 uses PAD0 of SERCOM4 (see data sheet).
+         * @param rx the pin instance to use for input
+         * 
          **/
-        ZSingleWireSerial(Pin& p);
+        ZSingleWireSerial(Pin& p, Pin *rx = NULL);
 
         virtual int putc(char c);
         virtual int getc();
@@ -73,7 +70,7 @@ namespace codal
 
         virtual int sendBreak();
 
-        void dmaTransferComplete(DmaCode c) override;
+        void dmaTransferComplete(DmaInstance *dma, DmaCode c) override;
     };
 }
 
