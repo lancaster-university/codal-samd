@@ -167,6 +167,16 @@ int ZI2C::setFrequency(uint32_t frequency)
 */
 int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 {
+    int busState = ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE;
+
+    // DMESG("BS %d",busState);
+
+    // if (busState == 0)
+    // {
+    //     DMESG("FORCING STATE");
+    //     ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE = 1;
+    //     while(((Sercom*)&i2c.device.hw)->I2CM.SYNCBUSY.bit.SYSOP);
+    // }
     address = address >> 1;
     // DMESG("W A: %d L: %d", address, len);
     struct _i2c_m_msg msg;
@@ -217,6 +227,17 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
      */
 int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 {
+    int busState = ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE;
+
+    // DMESG("BS %d",busState);
+
+    // if (busState == 0)
+    // {
+    //     DMESG("FORCING STATE");
+    //     ((Sercom*)&i2c.device.hw)->I2CM.STATUS.bit.BUSSTATE = 1;
+    //     while(((Sercom*)&i2c.device.hw)->I2CM.SYNCBUSY.bit.SYSOP);
+    // }
+
     address = address >> 1;
     // DMESG("R A: %d, L: %d", address, len);
     struct _i2c_m_msg msg;
