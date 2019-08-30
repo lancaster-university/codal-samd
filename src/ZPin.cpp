@@ -40,6 +40,10 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalDmesg.h"
 #include "hpl_gclk_base.h"
 
+#ifdef SAMD21
+#include "hpl/pm/hpl_pm_base.h"
+#endif
+
 extern "C"
 {
     #include "external_interrupts.h"
@@ -372,7 +376,25 @@ int ZPin::getAnalogValue()
 
     memset(&adc_descriptor, 0, sizeof(adc_descriptor));
 
+#ifdef SAMD21
+    // the samd_peripherals_adc_setup() uses wrong clock
+
+    // Turn the clocks on.
+    _pm_enable_bus_clock(PM_BUS_APBC, ADC);
+    _gclk_enable_channel(ADC_GCLK_ID, CLK_GEN_8MHZ);
+
+    adc_sync_init(&adc_descriptor, adc, (void *)NULL);
+
+    // Load the factory calibration
+    hri_adc_write_CALIB_BIAS_CAL_bf(ADC, (*((uint32_t*) ADC_FUSES_BIASCAL_ADDR) & ADC_FUSES_BIASCAL_Msk) >> ADC_FUSES_BIASCAL_Pos);
+    // Bits 7:5
+    uint16_t linearity = ((*((uint32_t*) ADC_FUSES_LINEARITY_1_ADDR) & ADC_FUSES_LINEARITY_1_Msk) >> ADC_FUSES_LINEARITY_1_Pos) << 5;
+    // Bits 4:0
+    linearity |= (*((uint32_t*) ADC_FUSES_LINEARITY_0_ADDR) & ADC_FUSES_LINEARITY_0_Msk) >> ADC_FUSES_LINEARITY_0_Pos;
+    hri_adc_write_CALIB_LINEARITY_CAL_bf(ADC, linearity);
+#else
     samd_peripherals_adc_setup(&adc_descriptor, adc);
+#endif
 
     adc_sync_set_reference(&adc_descriptor, ADC_REFCTRL_REFSEL_INTVCC1_Val);
 
