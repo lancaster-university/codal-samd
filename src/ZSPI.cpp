@@ -294,8 +294,16 @@ int ZSPI::write(int data)
 {
     rxCh = 0;
     txCh = data;
-    if (transfer(&txCh, 1, &rxCh, 1) < 0)
-        return DEVICE_SPI_ERROR;
+    if (dmaRxCh)
+    {
+        if (transfer(&txCh, 1, &rxCh, 1) < 0)
+            return DEVICE_SPI_ERROR;
+    }
+    else
+    {
+        if (transfer(&txCh, 1, NULL, 0) < 0)
+            return DEVICE_SPI_ERROR;
+    }
     return rxCh;
 }
 
