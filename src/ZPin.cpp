@@ -117,8 +117,10 @@ void ZPin::disconnect()
 {
     if (this->status & IO_STATUS_ANALOG_OUT)
     {
-        if (this->pwmCfg)
+        if (this->pwmCfg) {
             delete this->pwmCfg;
+            pwmout_free(this->pwmCfg);
+        }
         this->pwmCfg = NULL;
     }
 
