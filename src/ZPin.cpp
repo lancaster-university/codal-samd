@@ -728,11 +728,13 @@ int ZPin::enableRiseFallEvents(int eventType)
  */
 int ZPin::disableEvents()
 {
+    target_disable_irq();
     if (status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE | IO_STATUS_TOUCH_IN))
     {
         disconnect();
         getDigitalValue();
     }
+    target_enable_irq();
 
     return DEVICE_OK;
 }
