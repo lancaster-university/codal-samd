@@ -27,8 +27,10 @@ static ZSingleWireSerial* sws_instance = NULL;
 static void error_callback(struct _usart_async_device *device)
 {
     // flag any error to the dma handler.
-    if (sws_instance)
-        sws_instance->dmaTransferComplete(DMA_ERROR);
+    if (sws_instance) {
+        sws_instance->abortDMA();
+        sws_instance->dmaTransferComplete(DMA_COMPLETE);
+    }
 }
 
 static void tx_callback(struct _usart_async_device *)
