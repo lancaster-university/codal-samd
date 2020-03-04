@@ -242,6 +242,10 @@ int ZSingleWireSerial::configureRx(int enable)
         CURRENT_USART->USART.CTRLA.bit.RXPO = this->pad;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0; // 8 BIT
 
+        // clear errors
+        CURRENT_USART->USART.INTFLAG.reg = SERCOM_USART_INTFLAG_ERROR | SERCOM_USART_INTFLAG_RXBRK;
+        CURRENT_USART->USART.STATUS.reg = 0xff; // clear all status bits
+
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 1;
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
@@ -250,7 +254,7 @@ int ZSingleWireSerial::configureRx(int enable)
 
         status |= RX_CONFIGURED;
     }
-    else if (status & RX_CONFIGURED)
+    else if (!enable && (status & RX_CONFIGURED))
     {
         CURRENT_USART->USART.CTRLB.bit.RXEN = 0;
         while(CURRENT_USART->USART.SYNCBUSY.bit.CTRLB);
