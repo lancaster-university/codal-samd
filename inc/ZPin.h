@@ -55,7 +55,10 @@ protected:
         Button *btn;
     };
 
+    const mcu_pin_obj_t* pin_obj;
+#ifdef SAMD51
     EICChannel* chan;
+#endif
     int setPWM(uint32_t value, uint32_t period);
 
     /**
@@ -84,6 +87,8 @@ protected:
      * @return DEVICE_OK on success.
      */
     virtual int disableEvents();
+
+    void disableEIC();
 
 public:
     void disconnect();
