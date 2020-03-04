@@ -28,7 +28,7 @@ static void error_callback(struct _usart_async_device *device)
 {
     // flag any error to the dma handler.
     if (sws_instance)
-        sws_instance->dmaTransferComplete(DMA_ERROR);
+        sws_instance->dmaTransferComplete(NULL, DMA_ERROR);
 }
 
 static void tx_callback(struct _usart_async_device *)
@@ -40,34 +40,34 @@ static void rx_callback(struct _usart_async_device *, uint8_t)
 {
 }
 
-void ZSingleWireSerial::dmaTransferComplete(DmaCode errCode)
+void ZSingleWireSerial::dmaTransferComplete(DmaInstance *dma, DmaCode errCode)
 {
     uint16_t mode = 0;
 
     if (errCode == DMA_COMPLETE)
     {
-        if (status & TX_CONFIGURED)
+        if (dma == usart_tx_dma && (status & TX_CONFIGURED))
             mode = SWS_EVT_DATA_SENT;
 
-        if (status & RX_CONFIGURED)
+        if (dma == usart_rx_dma && (status & RX_CONFIGURED))
             mode = SWS_EVT_DATA_RECEIVED;
     }
     else
         mode = SWS_EVT_ERROR;
 
-    Event evt(this->id, mode, CREATE_ONLY);
-
     // if we have a cb member function, we invoke
     // otherwise fire the event for any listeners.
     if (this->cb)
         this->cb(mode);
+    else
+        Event(this->id, mode);
 }
 
 void ZSingleWireSerial::configureRxInterrupt(int enable)
 {
 }
 
-ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
+ZSingleWireSerial::ZSingleWireSerial(Pin& p, Pin *rx) : DMASingleWireSerial(p), rx(rx)
 {
     const mcu_pin_obj_t* single_wire_pin = samd_peripherals_get_pin(p.name);
 
@@ -100,6 +100,23 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     else
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
+    if (rx) {
+        const mcu_pin_obj_t* rx_pin = samd_peripherals_get_pin(rx->name);
+        if (rx_pin->sercom[0].index == this->instance_number)
+        {
+            this->rx_pad = rx_pin->sercom[0].pad;
+            this->rx_pinmux = MUX_C; // c
+        }
+
+        else if (rx_pin->sercom[1].index == this->instance_number)
+        {
+            this->rx_pad = rx_pin->sercom[1].pad;
+            this->rx_pinmux = MUX_D; // d
+        }
+        else
+            target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
+    }
+
     Sercom* instance = sercom_insts[this->instance_number];
     DMESG("SWS pad %d, idx %d, fn: %d", 0, this->instance_number, this->pinmux);
 
@@ -129,10 +146,10 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     usart_tx_dma->configure(sercom_trigger_src(this->instance_number, true), BeatByte, NULL, (volatile void*)&CURRENT_USART->USART.DATA.reg);
     usart_rx_dma->configure(sercom_trigger_src(this->instance_number, false), BeatByte, (volatile void*)&CURRENT_USART->USART.DATA.reg, NULL);
 
-    setBaud(115200);
-    
     status = 0;
 
+    setBaud(115200);
+    
 #ifdef SAMD21
     NVIC_SetPriority(SERCOM0_IRQn,1);
     NVIC_SetPriority(SERCOM1_IRQn,1);
@@ -143,16 +160,30 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 #else
     // SAMD51 has many more IRQs for SERCOMs
 #endif
+
 }
 
 int ZSingleWireSerial::setBaud(uint32_t baud)
 {
+    if (rx)
+    {
+        configureRx(0);
+        configureTx(0);
+    }
+    
 #ifdef SERCOM_100MHZ_CLOCK
     CURRENT_USART->USART.BAUD.reg = 65536 - ((uint64_t)65536 * 16 * baud) / 100000000;
 #else
     CURRENT_USART->USART.BAUD.reg = 65536 - ((uint64_t)65536 * 16 * baud) / CONF_GCLK_SERCOM0_CORE_FREQUENCY;;
 #endif
     this->baud = baud;
+
+    if (rx)
+    {
+        configureRx(1);
+        configureTx(1);
+    }
+
     return DEVICE_OK;
 }
 
@@ -227,7 +258,10 @@ int ZSingleWireSerial::configureRx(int enable)
 {
     if (enable && !(status & RX_CONFIGURED))
     {
-        gpio_set_pin_function(p.name, this->pinmux);
+        if (rx)
+            gpio_set_pin_function(rx->name, this->rx_pinmux);
+        else
+            gpio_set_pin_function(p.name, this->pinmux);
 
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 0;
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
@@ -236,7 +270,7 @@ int ZSingleWireSerial::configureRx(int enable)
         CURRENT_USART->USART.CTRLA.bit.DORD = 1;
 #endif
         CURRENT_USART->USART.CTRLA.bit.SAMPR = 0;
-        CURRENT_USART->USART.CTRLA.bit.RXPO = this->pad;
+        CURRENT_USART->USART.CTRLA.bit.RXPO = rx ? this->rx_pad : this->pad;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0; // 8 BIT
 
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 1;
@@ -345,7 +379,8 @@ int ZSingleWireSerial::abortDMA()
     if (!(status & (RX_CONFIGURED | TX_CONFIGURED)))
         return DEVICE_INVALID_PARAMETER;
 
-    usart_tx_dma->abort();
+    if (!rx)
+        usart_tx_dma->abort();
     usart_rx_dma->abort();
 
     // abort dma transfer

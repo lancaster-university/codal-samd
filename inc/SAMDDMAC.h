@@ -49,10 +49,12 @@ enum DmaBeatSize
     BeatWord
 };
 
+class DmaInstance;
+
 class DmaComponent
 {
 public:
-    virtual void dmaTransferComplete(DmaCode c);
+    virtual void dmaTransferComplete(DmaInstance *dma, DmaCode c) = 0;
 };
 
 static inline int sercom_trigger_src(int sercomIdx, bool tx)

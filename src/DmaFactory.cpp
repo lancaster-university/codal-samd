@@ -114,11 +114,6 @@ extern "C" void DMAC_4_Handler(void)
 }
 #endif
 
-/**
- * Base implementation of a DMA callback
- */
-void DmaComponent::dmaTransferComplete(DmaCode) {}
-
 DmaControllerInstance::DmaControllerInstance()
 {
     uint32_t ptr = (uint32_t)descriptorsBuffer;

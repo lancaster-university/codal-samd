@@ -62,7 +62,7 @@ protected:
     void init();
 
 public:
-    virtual void dmaTransferComplete(DmaCode);
+    virtual void dmaTransferComplete(DmaInstance *, DmaCode) override;
 
     /**
      * Initialize SPI instance with given pins.

@@ -55,7 +55,7 @@ void DmaInstance::trigger(DmaCode c)
     disable();
 
     if (this->cb)
-        this->cb->dmaTransferComplete(c);
+        this->cb->dmaTransferComplete(this, c);
 }
 
 
@@ -107,7 +107,7 @@ void DmaInstance::transfer(const void *src_addr, void *dst_addr, uint32_t len)
         descriptor.SRCADDR.reg = (uint32_t)src_addr + len;
     if (dst_addr)
         descriptor.DSTADDR.reg = (uint32_t)dst_addr + len;
-
+    
     enable();
 
     target_enable_irq();
@@ -124,6 +124,13 @@ int DmaInstance::getBytesTransferred()
 #else
     DMAC_ACTIVE_Type active;
     active.reg = DMAC->ACTIVE.reg;
+    // datasheet (22.8.13) says BTCNT is only valid if ABUSY
+    // However, the chip doesn't seem to flush BTCNT to write back descriptor when it 
+    // clears ABUSY, so if there are no other active channels, the write back will contain
+    // an old value indefinetely, while ABUSY is cleared.
+    // However, it is also possible that BTCNT contains the count from the previous
+    // transfer, before ABUSY is ever set.
+    // So this number may be flat wrong.
     if (active.bit.ID == channel_number)
         btcnt = active.bit.BTCNT;
     else
