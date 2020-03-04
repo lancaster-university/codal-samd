@@ -847,12 +847,12 @@ static void get_and_set(PortGroup *port, uint32_t mask) {
 
 __attribute__((noinline))
 static void get_and_clr(PortGroup *port, uint32_t mask) {
-    LOG1();
+    // LOG1();
     // 1 -> 0, only set when IN==1
     uint32_t inp = port->IN.reg & mask;
     port->DIRSET.reg = inp;
     port->OUTCLR.reg = inp;
-    LOG0();
+    // LOG0();
 }
 
 int ZPin::getAndSetDigitalValue(int value)
