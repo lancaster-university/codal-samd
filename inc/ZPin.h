@@ -348,6 +348,17 @@ public:
      */
     virtual int eventOn(int eventType);
 
+
+    /**
+     * Set pin value iff its current value as input is the opposite.
+     * 
+     * If pin is configured as input and reads as !value, set it to value
+     * and return DEVICE_OK.
+     * Otherwise, do nothing and return DEVICE_BUSY.
+     * Note, that this is overwritten in hardware-specific classes to check the condition immedietly before changing the pin value.
+     */
+    virtual int getAndSetDigitalValue(int value);
+
     virtual void pinEventDetected();
 
     void _setMux(int mux, bool isInput = false);

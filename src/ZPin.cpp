@@ -115,6 +115,7 @@ ZPin::ZPin(int id, PinNumber name, PinCapability capability) : codal::Pin(id, na
 
 void ZPin::disconnect()
 {
+    target_disable_irq();
     if (this->status & IO_STATUS_ANALOG_OUT)
     {
         if (this->pwmCfg) {
@@ -146,8 +147,8 @@ void ZPin::disconnect()
             delete this->btn;
         this->btn = NULL;
     }
-
     status = 0;
+    target_enable_irq();
 }
 
 void ZPin::_setMux(int mux, bool isInput)
@@ -439,7 +440,8 @@ int ZPin::isInput()
  */
 int ZPin::isOutput()
 {
-    return (status & (IO_STATUS_DIGITAL_OUT | IO_STATUS_ANALOG_OUT)) == 0 ? 0 : 1;
+    return (PORT->Group[name >> 5].DIR.reg & (1 << (name & 31))) ||
+        (status & (IO_STATUS_DIGITAL_OUT | IO_STATUS_ANALOG_OUT)) == 0 ? 0 : 1;
 }
 
 /**
@@ -793,5 +795,50 @@ int ZPin::eventOn(int eventType)
 
     return DEVICE_OK;
 }
+
+__attribute__((noinline))
+static void get_and_set(PortGroup *port, uint32_t mask) {
+    // 0 -> 1, only set when IN==0
+    uint32_t inp = ~port->IN.reg & mask;
+    port->DIRSET.reg = inp;
+    port->OUTSET.reg = inp;
+}
+
+__attribute__((noinline))
+static void get_and_clr(PortGroup *port, uint32_t mask) {
+    // PORT->Group[0].OUTSET.reg = (1 << 5);
+    // 1 -> 0, only set when IN==1
+    uint32_t inp = port->IN.reg & mask;
+    port->DIRSET.reg = inp;
+    port->OUTCLR.reg = inp;
+    // PORT->Group[0].OUTCLR.reg = (1 << 5);
+}
+
+int ZPin::getAndSetDigitalValue(int value)
+{
+    uint32_t mask = 1 << (name & 31);
+
+    PortGroup *port = &PORT->Group[name >> 5];
+
+    if ((port->DIR.reg & mask) == 0)
+    {
+        // pin in input mode, do the "atomic" set
+        if (value)
+            get_and_set(port, mask);
+        else
+            get_and_clr(port, mask);
+
+        if (port->DIR.reg & mask) {
+            disconnect();
+            setDigitalValue(value); // make sure 'status' is updated
+            return 0;
+        } else {
+            return DEVICE_BUSY;
+        }
+    }
+
+    return 0;
+}
+
 
 } // namespace codal
