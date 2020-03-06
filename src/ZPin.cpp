@@ -44,6 +44,9 @@ DEALINGS IN THE SOFTWARE.
 #include "hpl/pm/hpl_pm_base.h"
 #endif
 
+#define LOG1() PORT->Group[0].OUTSET.reg = (1 << 5)
+#define LOG0() PORT->Group[0].OUTCLR.reg = (1 << 5)
+
 extern "C"
 {
     #include "external_interrupts.h"
@@ -83,6 +86,9 @@ inline gpio_pull_mode map(codal::PullMode pinMode)
     return GPIO_PULL_OFF;
 }
 
+#define PIN_MASK (1 << (name & 31))
+#define PIN_PORT (&PORT->Group[name >> 5])
+
 /**
  * Constructor.
  * Create a ZPin instance, generally used to represent a pin on the edge connector.
@@ -110,11 +116,33 @@ ZPin::ZPin(int id, PinNumber name, PinCapability capability) : codal::Pin(id, na
     this->pwmCfg = NULL;
     this->evCfg = NULL;
     this->btn = NULL;
+#ifdef SAMD51
     this->chan = NULL;
+#endif
+    this->pin_obj = NULL;
+}
+
+void ZPin::disableEIC()
+{
+    // for the samd21, we simply disable the isr, memory is retained.
+#ifdef SAMD21
+    if (!pin_obj)
+        pin_obj = samd_peripherals_get_pin(name);
+    configure_eic_channel(pin_obj->extint_channel, 0);
+#else
+    this->chan->disable();
+    this->chan = NULL;
+
+    if (this->evCfg) {
+        delete this->evCfg;
+        this->evCfg = NULL;
+    }
+#endif
 }
 
 void ZPin::disconnect()
 {
+    target_disable_irq();
     if (this->status & IO_STATUS_ANALOG_OUT)
     {
         if (this->pwmCfg) {
@@ -126,18 +154,7 @@ void ZPin::disconnect()
 
     if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE))
     {
-        // for the samd21, we simply disable the isr, memory is retained.
-#ifdef SAMD21
-        const mcu_pin_obj_t* pin = samd_peripherals_get_pin(name);
-        configure_eic_channel(pin->extint_channel, 0);
-#else
-        this->chan->disable();
-        this->chan = NULL;
-
-        if (this->evCfg)
-            delete this->evCfg;
-        this->evCfg = NULL;
-#endif
+        disableEIC();
     }
 
     if (this->status & IO_STATUS_TOUCH_IN)
@@ -146,8 +163,8 @@ void ZPin::disconnect()
             delete this->btn;
         this->btn = NULL;
     }
-
     status = 0;
+    target_enable_irq();
 }
 
 void ZPin::_setMux(int mux, bool isInput)
@@ -209,13 +226,24 @@ int ZPin::getDigitalValue()
           (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE)))
     {
         disconnect();
-        gpio_set_pin_function(name, GPIO_PIN_FUNCTION_OFF);
-        gpio_set_pin_direction(name, GPIO_DIRECTION_IN);
-        gpio_set_pin_pull_mode(name, map(pullMode));
+
+        uint32_t cfg = PIN_PORT->PINCFG[name & 31].reg;
+        PIN_PORT->DIRCLR.reg = PIN_MASK;
+        uint32_t seven = PORT_PINCFG_PMUXEN | PORT_PINCFG_PULLEN | PORT_PINCFG_INEN;
+        if (pullMode == PullMode::None)
+             PIN_PORT->PINCFG[name & 31].reg = (cfg & ~seven) | PORT_PINCFG_INEN;
+        else
+        {
+            PIN_PORT->PINCFG[name & 31].reg = (cfg & ~seven) | PORT_PINCFG_INEN | PORT_PINCFG_PULLEN;
+            if (pullMode == PullMode::Down)
+                PIN_PORT->OUTCLR.reg = PIN_MASK;
+            else
+                PIN_PORT->OUTSET.reg = PIN_MASK;
+        }
         status |= IO_STATUS_DIGITAL_IN;
     }
 
-    return gpio_get_pin_level(name);
+    return PIN_PORT->IN.reg & PIN_MASK ? 1 : 0;
 }
 
 /**
@@ -348,15 +376,16 @@ int ZPin::getAnalogValue()
     if (!(PIN_CAPABILITY_ANALOG & capability))
         return DEVICE_NOT_SUPPORTED;
 
-    const mcu_pin_obj_t* adc_pin = samd_peripherals_get_pin(name);
-    uint8_t channel = adc_pin->adc_input[0];
+    if (!pin_obj)
+        pin_obj = samd_peripherals_get_pin(name);
+    uint8_t channel = pin_obj->adc_input[0];
 #ifdef SAMD21
     Adc *adc = ADC;
 #else
     Adc *adc = ADC0;
     if (channel == 0xff) {
         adc = ADC1;
-        channel = adc_pin->adc_input[1];
+        channel = pin_obj->adc_input[1];
     }
 #endif
 
@@ -439,7 +468,8 @@ int ZPin::isInput()
  */
 int ZPin::isOutput()
 {
-    return (status & (IO_STATUS_DIGITAL_OUT | IO_STATUS_ANALOG_OUT)) == 0 ? 0 : 1;
+    return (PORT->Group[name >> 5].DIR.reg & (1 << (name & 31))) ||
+        (status & (IO_STATUS_DIGITAL_OUT | IO_STATUS_ANALOG_OUT)) == 0 ? 0 : 1;
 }
 
 /**
@@ -662,9 +692,10 @@ int ZPin::enableRiseFallEvents(int eventType)
         if (!(status & IO_STATUS_DIGITAL_IN))
             getDigitalValue();
 
-        const mcu_pin_obj_t* pin = samd_peripherals_get_pin(name);
-        CODAL_ASSERT(pin != NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
-        CODAL_ASSERT(pin->has_extint, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+        if (!pin_obj)
+            pin_obj = samd_peripherals_get_pin(name);
+        CODAL_ASSERT(pin_obj != NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+        CODAL_ASSERT(pin_obj->has_extint, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
         if (!evCfg)
             evCfg = new ZEventConfig;
@@ -682,10 +713,10 @@ int ZPin::enableRiseFallEvents(int eventType)
             eic_set_enable(true);
         }
 
-        instances[pin->extint_channel] = this;
+        instances[pin_obj->extint_channel] = this;
         // last param is ignored as we override EIC_Handlers...
         // 3 is rise fall
-        turn_on_eic_channel(pin->extint_channel, 3, EIC_HANDLER_APP);
+        turn_on_eic_channel(pin_obj->extint_channel, 3, EIC_HANDLER_APP);
 
         // pinmux a is zero (true for both samd21 and 51)
         gpio_set_pin_function(name, PINMUX(name, 0));
@@ -693,7 +724,7 @@ int ZPin::enableRiseFallEvents(int eventType)
         if (!chan)
         {
             EICFactory* factory = EICFactory::getInstance();
-            this->chan = factory->getChannel(pin->extint_channel);
+            this->chan = factory->getChannel(pin_obj->extint_channel);
             CODAL_ASSERT(chan != NULL, DEVICE_HARDWARE_CONFIGURATION_ERROR);
         }
 
@@ -726,11 +757,23 @@ int ZPin::enableRiseFallEvents(int eventType)
  */
 int ZPin::disableEvents()
 {
+    target_disable_irq();
     if (status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE | IO_STATUS_TOUCH_IN))
     {
+        // this is 3us on D21
+        disableEIC();
+        gpio_set_pin_function(name, GPIO_PIN_FUNCTION_OFF);
+        // the pin was in EIC mode, which implies input mode
+        // avoid unneccessary (and costly!) reconfiguration
+        status = IO_STATUS_DIGITAL_IN;
+    }
+    else if (status & (IO_STATUS_TOUCH_IN))
+    {
+        // this is 10us on D21
         disconnect();
         getDigitalValue();
     }
+    target_enable_irq();
 
     return DEVICE_OK;
 }
@@ -773,6 +816,10 @@ int ZPin::eventOn(int eventType)
 {
     switch (eventType)
     {
+    case DEVICE_PIN_EVENT_NONE:
+        disableEvents();
+        break;
+
     case DEVICE_PIN_EVENT_ON_EDGE:
     case DEVICE_PIN_EVENT_ON_PULSE:
     case DEVICE_PIN_INTERRUPT_ON_EDGE:
@@ -783,15 +830,55 @@ int ZPin::eventOn(int eventType)
         isTouched();
         break;
 
-    case DEVICE_PIN_EVENT_NONE:
-        disableEvents();
-        break;
-
     default:
         return DEVICE_INVALID_PARAMETER;
     }
 
     return DEVICE_OK;
 }
+
+__attribute__((noinline))
+static void get_and_set(PortGroup *port, uint32_t mask) {
+    // 0 -> 1, only set when IN==0
+    uint32_t inp = ~port->IN.reg & mask;
+    port->DIRSET.reg = inp;
+    port->OUTSET.reg = inp;
+}
+
+__attribute__((noinline))
+static void get_and_clr(PortGroup *port, uint32_t mask) {
+    // LOG1();
+    // 1 -> 0, only set when IN==1
+    uint32_t inp = port->IN.reg & mask;
+    port->DIRSET.reg = inp;
+    port->OUTCLR.reg = inp;
+    // LOG0();
+}
+
+int ZPin::getAndSetDigitalValue(int value)
+{
+    uint32_t mask = PIN_MASK;
+    PortGroup *port = PIN_PORT;
+
+    if ((port->DIR.reg & mask) == 0)
+    {
+        // pin in input mode, do the "atomic" set
+        if (value)
+            get_and_set(port, mask);
+        else
+            get_and_clr(port, mask);
+
+        if (port->DIR.reg & mask) {
+            disconnect();
+            setDigitalValue(value); // make sure 'status' is updated
+            return 0;
+        } else {
+            return DEVICE_BUSY;
+        }
+    }
+
+    return 0;
+}
+
 
 } // namespace codal

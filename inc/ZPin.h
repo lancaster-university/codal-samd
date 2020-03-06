@@ -55,7 +55,10 @@ protected:
         Button *btn;
     };
 
+    const mcu_pin_obj_t* pin_obj;
+#ifdef SAMD51
     EICChannel* chan;
+#endif
     int setPWM(uint32_t value, uint32_t period);
 
     /**
@@ -84,6 +87,8 @@ protected:
      * @return DEVICE_OK on success.
      */
     virtual int disableEvents();
+
+    void disableEIC();
 
 public:
     void disconnect();
@@ -347,6 +352,17 @@ public:
      * supplied by ARM mbed.
      */
     virtual int eventOn(int eventType);
+
+
+    /**
+     * Set pin value iff its current value as input is the opposite.
+     * 
+     * If pin is configured as input and reads as !value, set it to value
+     * and return DEVICE_OK.
+     * Otherwise, do nothing and return DEVICE_BUSY.
+     * Note, that this is overwritten in hardware-specific classes to check the condition immedietly before changing the pin value.
+     */
+    virtual int getAndSetDigitalValue(int value);
 
     virtual void pinEventDetected();
 

@@ -27,8 +27,10 @@ static ZSingleWireSerial* sws_instance = NULL;
 static void error_callback(struct _usart_async_device *device)
 {
     // flag any error to the dma handler.
-    if (sws_instance)
-        sws_instance->dmaTransferComplete(DMA_ERROR);
+    if (sws_instance) {
+        sws_instance->abortDMA();
+        sws_instance->dmaTransferComplete(DMA_COMPLETE);
+    }
 }
 
 static void tx_callback(struct _usart_async_device *)
@@ -134,14 +136,15 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     status = 0;
 
 #ifdef SAMD21
-    NVIC_SetPriority(SERCOM0_IRQn,1);
-    NVIC_SetPriority(SERCOM1_IRQn,1);
-    NVIC_SetPriority(SERCOM2_IRQn,1);
-    NVIC_SetPriority(SERCOM3_IRQn,1);
-    NVIC_SetPriority(SERCOM4_IRQn,1);
-    NVIC_SetPriority(SERCOM5_IRQn,1);
+    NVIC_SetPriority(SERCOM0_IRQn, 1);
+    NVIC_SetPriority(SERCOM1_IRQn, 1);
+    NVIC_SetPriority(SERCOM2_IRQn, 1);
+    NVIC_SetPriority(SERCOM3_IRQn, 1);
+    NVIC_SetPriority(SERCOM4_IRQn, 1);
+    NVIC_SetPriority(SERCOM5_IRQn, 1);
 #else
-    // SAMD51 has many more IRQs for SERCOMs
+    for (int irqn = SERCOM0_0_IRQn; irqn <= SERCOM5_3_IRQn; irqn++)
+        NVIC_SetPriority((IRQn)irqn, 1);
 #endif
 }
 
@@ -239,6 +242,10 @@ int ZSingleWireSerial::configureRx(int enable)
         CURRENT_USART->USART.CTRLA.bit.RXPO = this->pad;
         CURRENT_USART->USART.CTRLB.bit.CHSIZE = 0; // 8 BIT
 
+        // clear errors
+        CURRENT_USART->USART.INTFLAG.reg = SERCOM_USART_INTFLAG_ERROR | SERCOM_USART_INTFLAG_RXBRK;
+        CURRENT_USART->USART.STATUS.reg = 0xff; // clear all status bits
+
         CURRENT_USART->USART.CTRLA.bit.ENABLE = 1;
         while(CURRENT_USART->USART.SYNCBUSY.bit.ENABLE);
 
@@ -247,7 +254,7 @@ int ZSingleWireSerial::configureRx(int enable)
 
         status |= RX_CONFIGURED;
     }
-    else if (status & RX_CONFIGURED)
+    else if (!enable && (status & RX_CONFIGURED))
     {
         CURRENT_USART->USART.CTRLB.bit.RXEN = 0;
         while(CURRENT_USART->USART.SYNCBUSY.bit.CTRLB);
