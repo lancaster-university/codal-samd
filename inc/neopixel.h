@@ -26,29 +26,12 @@
 #include "hpl_gpio.h"
 #include "hal_gpio.h"
 
-#ifdef SAMD51
-#include "hri/hri_cmcc_d51.h"
-#include "hri/hri_nvmctrl_d51.h"
-
-// This magical macro makes sure the delay isn't optimized out and is the
-// minimal three instructions.
-#define delay_cycles(cycles) \
-{ \
-    uint32_t t; \
-    asm volatile ( \
-        "movs %[t], %[c]\n\t" \
-        "loop%=:\n\t" \
-        "subs	%[t], #1\n\t" \
-        "bne.n  loop%=" : [t] "=r"(t) : [c] "I" (cycles)); \
-    }
-#endif
 // Ensure this code is compiled with -Os. Any other optimization level may change the timing of it
 // and break neopixels.
 #pragma GCC push_options
 #pragma GCC optimize ("Os")
 
-uint64_t next_start_tick_ms = 0;
-uint32_t next_start_tick_us = 1000;
+#define ASM asm
 
 void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
     // This is adapted directly from the Adafruit NeoPixel library SAMD21G18A code:
@@ -62,86 +45,88 @@ void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
     uint32_t  pinMask;
     PortGroup* port;
 
-    // Turn off interrupts of any kind during timing-sensitive code.
-    target_disable_irq();
-
-
-    #ifdef SAMD21
-    // Make sure the NVM cache is consistently timed.
-    NVMCTRL->CTRLB.bit.READMODE = NVMCTRL_CTRLB_READMODE_DETERMINISTIC_Val;
-    #endif
-
-    #ifdef SAMD51
-    // When this routine is positioned at certain addresses, the timing logic
-    // below can be too fast by about 2.5x. This is some kind of (un)fortunate code
-    // positiong with respect to a cache line.
-    // Theoretically we should turn on off the CMCC caches and the
-    // NVM caches to ensure consistent timing. Testing shows the the NVMCTRL
-    // cache disabling seems to make the difference. But turn both off to make sure.
-    // It's difficult to test because additions to the code before the timing loop
-    // below change instruction placement. Testing was done by adding cache changes
-    // below the loop (so only the first time through is wrong).
-    //
-    // Turn off instruction, data, and NVM caches to force consistent timing.
-    // Invalidate existing cache entries.
-    hri_cmcc_set_CFG_reg(CMCC, CMCC_CFG_DCDIS | CMCC_CFG_ICDIS);
-    hri_cmcc_write_MAINT0_reg(CMCC, CMCC_MAINT0_INVALL);
-    hri_nvmctrl_set_CTRLA_CACHEDIS0_bit(NVMCTRL);
-    hri_nvmctrl_set_CTRLA_CACHEDIS1_bit(NVMCTRL);
-   #endif
+  
 
     uint32_t pin_name = pin.name;
     port    =  &PORT->Group[GPIO_PORT(pin_name)];  // Convert GPIO # to port register
     pinMask =  (1UL << (pin_name % 32));  // From port_pin_set_output_level ASF code.
     ptr     =  (uint8_t*)data;
     end     =  ptr + length;
-    p       = *ptr++;
     bitMask =  0x80;
 
     volatile uint32_t *set = &(port->OUTSET.reg),
                       *clr = &(port->OUTCLR.reg);
 
+    // Turn off interrupts of any kind during timing-sensitive code.
+    target_disable_irq();
+
+    #ifdef SAMD51
+    // the M4 code is not from MicroPython
+    // WS2812B timings, +-0.15uS
+    // 0 - 0.40uS hi 0.85uS low
+    // 1 - 0.80uS hi 0.45uS low
+    if (!(DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk))
+    {
+        CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+        DWT->CYCCNT = 0;
+        DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+    }
+
+    uint32_t phase = DWT->CYCCNT;
+    for (;;)
+    {
+        *set = pinMask;
+
+        // phase += CPU_MHZ / 0.8
+        // the other numbers are relative to phase increment
+        uint32_t change = *ptr & bitMask ? phase + 97 : phase + 47;
+        phase += 150;
+
+        bitMask = bitMask >> 1;
+        if (bitMask == 0)
+        {
+            bitMask = 0x80;
+            ptr++;
+        }
+
+        while (DWT->CYCCNT < change)
+            ;
+
+        *clr = pinMask;
+
+        if (ptr >= end)
+            break;
+
+        while (DWT->CYCCNT < phase)
+            ;
+    }
+
+
+    #elif defined(SAMD21)
+    // Make sure the NVM cache is consistently timed.
+    NVMCTRL->CTRLB.bit.READMODE = NVMCTRL_CTRLB_READMODE_DETERMINISTIC_Val;
+    p       = *ptr++;
     for(;;) {
         *set = pinMask;
         // This is the time where the line is always high regardless of the bit.
         // For the SK6812 its 0.3us +- 0.15us
-        #ifdef SAMD21
-        asm("nop; nop;");
-        #endif
-        #ifdef SAMD51
-        system_timer_wait_cycles(2);
-        #endif
+        ASM("nop; nop;");
         if((p & bitMask) != 0) {
             // This is the high delay unique to a one bit.
             // For the SK6812 its 0.3us
-            #ifdef SAMD21
-            asm("nop; nop; nop; nop; nop; nop; nop;");
-            #endif
-            #ifdef SAMD51
-            system_timer_wait_cycles(3);
-            #endif
+            ASM("nop; nop; nop; nop; nop; nop; nop;");
             *clr = pinMask;
         } else {
             *clr = pinMask;
             // This is the low delay unique to a zero bit.
             // For the SK6812 its 0.3us
-            #ifdef SAMD21
-            asm("nop; nop;");
-            #endif
-            #ifdef SAMD51
-            system_timer_wait_cycles(2);
-            #endif
+            ASM("nop; nop;");
         }
         if((bitMask >>= 1) != 0) {
             // This is the delay between bits in a byte and is the 1 code low
             // level time from the datasheet.
             // For the SK6812 its 0.6us +- 0.15us
-            #ifdef SAMD21
-            asm("nop; nop; nop; nop; nop;");
-            #endif
-            #ifdef SAMD51
-            system_timer_wait_cycles(4);
-            #endif
+            ASM("nop; nop; nop; nop; nop;");
         } else {
             if(ptr >= end) break;
             p       = *ptr++;
@@ -150,23 +135,12 @@ void neopixel_send_buffer(Pin& pin, const uint8_t *data, uint32_t length) {
             // in the if statement except its tuned to account for the time the
             // above operations take.
             // For the SK6812 its 0.6us +- 0.15us
-            #ifdef SAMD51
-            system_timer_wait_cycles(3);
-            #endif
         }
     }
-
-    #ifdef SAMD21
     // Speed up! (But inconsistent timing.)
     NVMCTRL->CTRLB.bit.READMODE = NVMCTRL_CTRLB_READMODE_NO_MISS_PENALTY_Val;
-    #endif
-
-    #ifdef SAMD51
-    // Turn instruction, data, and NVM caches back on.
-    hri_cmcc_clear_CFG_reg(CMCC, CMCC_CFG_DCDIS | CMCC_CFG_ICDIS);
-    hri_nvmctrl_clear_CTRLA_CACHEDIS0_bit(NVMCTRL);
-    hri_nvmctrl_clear_CTRLA_CACHEDIS1_bit(NVMCTRL);
-
+    #else
+    #error "MCU not defined"
     #endif
 
     // Turn on interrupts after timing-sensitive code.
