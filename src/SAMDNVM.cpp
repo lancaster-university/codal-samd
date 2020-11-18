@@ -101,14 +101,14 @@ SAMDNVM::SAMDNVM()
 
 }
 
-uint32_t* SAMDNVM::getFlashStart()
+uint32_t SAMDNVM::getFlashStart()
 {
-    return (uint32_t*)0;
+    return 0;
 }
 
-uint32_t* SAMDNVM::getFlashEnd()
+uint32_t SAMDNVM::getFlashEnd()
 {
-    return (uint32_t*)(((uint8_t*)getFlashStart()) + (getFlashSize() - flash_eep_size()));
+    return getFlashStart() + (getFlashSize() - flash_eep_size());
 }
 
 uint32_t SAMDNVM::getPageSize()
@@ -122,21 +122,21 @@ uint32_t SAMDNVM::getFlashSize()
     return flash_page_count() * flash_page_size();
 }
 
-int SAMDNVM::copy(uint32_t* dest, uint32_t* source, uint32_t size)
+int SAMDNVM::read(uint32_t* dest, uint32_t source, uint32_t size)
 {
-    copy_words(dest, source, size);
+    copy_words(dest, (uint32_t *)source, size);
     return DEVICE_OK;
 }
 
-int SAMDNVM::erase(uint32_t* page)
+int SAMDNVM::erase(uint32_t page)
 {
-    flash_erase_row(page);
+    flash_erase_row((uint32_t *)page);
     return DEVICE_OK;
 }
 
-int SAMDNVM::write(uint32_t* dst, uint32_t* source, uint32_t size)
+int SAMDNVM::write(uint32_t dst, uint32_t* source, uint32_t size)
 {
-    flash_write_words(dst, source, size);
+    flash_write_words((uint32_t *)dst, source, size);
     return DEVICE_OK;
 }
 #endif
