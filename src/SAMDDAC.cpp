@@ -247,6 +247,7 @@ int SAMDDAC::pull()
     if (buffer.length()) {
         dmaInstance->transfer((const void *)&buffer[0], NULL, buffer.length());
     } else {
+        setValue(0);
         dataReady = 0;
         active = false;
         return DEVICE_OK;
